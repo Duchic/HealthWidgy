@@ -37,9 +37,10 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
   val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = Settings())
   var period by rememberSaveable { mutableStateOf(HistoryPeriod.WEEK) }
   var selected by rememberSaveable(period) { mutableStateOf<Int?>(null) }
-  val today = remember { LocalDate.now() }
+  val today = rememberToday()
   val from = firstDay(period, today)
-  val rows by remember(metricId, from) { container.history.daily(metricId, from) }.collectAsStateWithLifecycle(initialValue = emptyList())
+  val rowsOrNull by remember(metricId, from) { container.history.daily(metricId, from) }.collectAsStateWithLifecycle(initialValue = null)
+  val rows = rowsOrNull.orEmpty()
   val color = def.color(LocalMetricColors.current)
   val goal = def.goal(settings)
   val slots = buildSlots(rows, period, today)
@@ -61,7 +62,7 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
           ChartStyle.BARS -> BarChart(values, labels, color, goal = goal, selected = selected, onSelect = { selected = it })
           ChartStyle.LINE -> LineChart(values, labels, color, selected = selected, onSelect = { selected = it }, showPoints = period != HistoryPeriod.MONTH)
         }
-        if (rows.isEmpty()) {
+        if (rowsOrNull != null && rows.isEmpty()) {
           Text("Pro toto období zatím nejsou v databázi žádná data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
@@ -77,14 +78,17 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
         )
         if (summary.goalHits != null && goal != null) {
           Text(
-            "Cíl ${def.format(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} ukončených dní (bez dneška)",
+            "Cíl ${def.format(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} " +
+              Format.plural(summary.daysWithData.toLong(), "ukončeného dne", "ukončených dní", "ukončených dní") + " (bez dneška)",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),
           )
         }
         summary.best?.let {
-          Text("Nejlépe: ${it.fullLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          // For resting heart rate the highest value is the worst day, so name it neutrally.
+          val label = if (def.id == MetricDefs.RestingHr.id) "Nejvyšší" else "Nejlépe"
+          Text("$label: ${it.fullLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
     }

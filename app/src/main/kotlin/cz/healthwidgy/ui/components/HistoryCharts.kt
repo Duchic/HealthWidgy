@@ -166,6 +166,10 @@ fun LineChart(
         }
       }
       path?.let { drawPath(it, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)) }
+      // A value between two gaps has no line segment: draw it as a dot so it does not vanish.
+      values.forEachIndexed { i, v ->
+        if (v != null && values.getOrNull(i - 1) == null && values.getOrNull(i + 1) == null) drawCircle(color, 2.5.dp.toPx(), Offset(x(i), y(v)))
+      }
       if (showPoints) {
         values.forEachIndexed { i, v ->
           if (v != null) drawCircle(color, radius = if (i == selected) 4.5.dp.toPx() else 2.5.dp.toPx(), center = Offset(x(i), y(v)))
@@ -178,7 +182,15 @@ fun LineChart(
 
 /** Time-based line (workout heart rate, speed): x is time between [start] and [end]. */
 @Composable
-fun TimeLineChart(points: List<Pair<Instant, Double>>, start: Instant, end: Instant, color: Color, modifier: Modifier = Modifier, height: Dp = 140.dp) {
+fun TimeLineChart(
+  points: List<Pair<Instant, Double>>,
+  start: Instant,
+  end: Instant,
+  color: Color,
+  modifier: Modifier = Modifier,
+  height: Dp = 140.dp,
+  showLastPoint: Boolean = false,
+) {
   val grid = MaterialTheme.colorScheme.surfaceContainerHighest
   Canvas(modifier.fillMaxWidth().height(height)) {
     if (points.size < 2) return@Canvas
@@ -199,6 +211,7 @@ fun TimeLineChart(points: List<Pair<Instant, Double>>, start: Instant, end: Inst
     }
     drawPath(fill, color.copy(alpha = 0.14f))
     drawPath(path, color, style = Stroke(1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+    if (showLastPoint) drawCircle(color, 3.dp.toPx(), Offset(x(points.last().first), y(points.last().second)))
   }
 }
 

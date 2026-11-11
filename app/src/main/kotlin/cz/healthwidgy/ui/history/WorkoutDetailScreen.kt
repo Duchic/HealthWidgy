@@ -27,6 +27,10 @@ import cz.healthwidgy.ui.components.TileHeader
 import cz.healthwidgy.ui.components.TimeLineChart
 import cz.healthwidgy.ui.theme.LocalMetricColors
 import java.time.Instant
+import kotlinx.coroutines.flow.map
+
+/** Wraps a loaded value so "loaded but empty" differs from "still loading" (null). */
+private data class Loaded<T>(val value: T)
 
 private val PACE_TYPES =
   setOf(
@@ -41,15 +45,17 @@ private val PACE_TYPES =
 fun WorkoutDetailScreen(id: String, onBack: () -> Unit, contentPadding: PaddingValues) {
   val container = LocalContext.current.appContainer
   val colors = LocalMetricColors.current
-  val workout by remember(id) { container.history.exercise(id) }.collectAsStateWithLifecycle(initialValue = null)
+  // Outer null = still loading, Loaded(null) = not in the cache.
+  val workout by remember(id) { container.history.exercise(id).map { Loaded(it) } }.collectAsStateWithLifecycle(initialValue = null)
   LaunchedEffect(id) { container.syncEngine.ensureExerciseStats(id) }
-  val w = workout
+  val w = workout?.value
   val series by
     produceState<WorkoutSeries?>(null, w?.start, w?.end) {
       value = if (w == null) null else container.history.workoutSeries(Instant.ofEpochMilli(w.start), Instant.ofEpochMilli(w.end))
     }
 
   DetailScreen(w?.let(::workoutName) ?: "Trénink", onBack, contentPadding) {
+    if (workout == null) return@DetailScreen
     if (w == null) {
       item { Text("Trénink se nenašel. Možná ještě neproběhla synchronizace.", style = MaterialTheme.typography.bodyMedium) }
       return@DetailScreen

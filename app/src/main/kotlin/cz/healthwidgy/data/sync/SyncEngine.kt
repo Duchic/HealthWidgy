@@ -88,28 +88,39 @@ class SyncEngine(
   private val _status = MutableStateFlow(SyncStatus())
   val status: StateFlow<SyncStatus> = _status.asStateFlow()
 
-  /** Syncs unless one ran less than [MIN_INTERVAL] ago (a backfill or [force] always runs). */
+  /** In-memory throttle; also limits retries of a backfill that keeps failing. */
+  private var lastAttempt: Instant? = null
+
+  /** Syncs unless one was attempted less than [MIN_INTERVAL] ago ([force] always runs). */
   suspend fun sync(force: Boolean = false) {
     mutex.withLock {
       val settings = settingsRepository.settings.first()
       val access = source.access()
       if (!access.isAvailable || !access.hasAnyDataPermission) return
+      val now = Instant.now()
+      if (!force && lastAttempt?.let { Duration.between(it, now) < MIN_INTERVAL } == true) return
+      lastAttempt = now
       val key = settings.sourceMode.name
       val state = dao.syncState(key)
-      val needBackfill = state == null || (access.hasHistory && !state.backfilledWithHistory)
-      val last = state?.lastSyncAt?.let(Instant::ofEpochMilli)
-      if (!force && !needBackfill && last != null && Duration.between(last, Instant.now()) < MIN_INTERVAL) return
+      val zone = ZoneId.systemDefault()
+      val today = now.atZone(zone).toLocalDate()
+      val grantedTypes = HcTypes.all.filter { access.isGranted(it) }.map { it.id }.toSet()
+      val backfilledTypes = state?.backfilledTypes?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+      // Backfill when the cache is new, when history access was granted later, or when a type was granted
+      // (or failed) after the last backfill: otherwise its older history would never be loaded.
+      val needBackfill = state == null || (access.hasHistory && !state.backfilledWithHistory) || (grantedTypes - backfilledTypes).isNotEmpty()
+      val limit = today.minusDays(if (access.hasHistory) BACKFILL_DAYS_HISTORY else BACKFILL_DAYS)
+      // Incremental runs reach back to the day before the previous sync (at least RECENT_DAYS), so days
+      // missed while the app was not used and half-finished day totals get recomputed.
+      val lastDay = state?.lastSyncAt?.let { Instant.ofEpochMilli(it).atZone(zone).toLocalDate() } ?: today
+      val from = if (needBackfill) limit else maxOf(limit, minOf(today.minusDays(RECENT_DAYS), lastDay.minusDays(1)))
 
       _status.update { it.copy(running = true, backfilling = needBackfill) }
       val failures = mutableMapOf<String, FailureKind>()
       try {
-        val zone = ZoneId.systemDefault()
-        val now = Instant.now()
-        val today = now.atZone(zone).toLocalDate()
-        val from = if (needBackfill) today.minusDays(if (access.hasHistory) BACKFILL_DAYS_HISTORY else BACKFILL_DAYS) else today.minusDays(RECENT_DAYS)
-        val run = Run(access, settings.sourceMode, from, today, now, zone, failures)
+        val run = Run(access, settings.sourceMode, from, today, now, zone, failures, isBackfill = needBackfill)
         run.execute(state)
-        _status.update { SyncStatus(running = false, lastSyncAt = now, failures = failures) }
+        _status.update { SyncStatus(running = false, lastSyncAt = now, failures = failures.toMap()) }
       } catch (e: Exception) {
         if (e is kotlin.coroutines.cancellation.CancellationException) {
           _status.update { it.copy(running = false, backfilling = false) }
@@ -126,7 +137,7 @@ class SyncEngine(
     val entity = dao.exerciseById(mode.name, id) ?: return
     if (entity.statsComputed) return
     val access = source.access()
-    val run = Run(access, mode, LocalDate.now(), LocalDate.now(), Instant.now(), ZoneId.systemDefault(), mutableMapOf())
+    val run = Run(access, mode, LocalDate.now(), LocalDate.now(), Instant.now(), ZoneId.systemDefault(), mutableMapOf(), isBackfill = false)
     dao.upsertExercises(listOf(run.withStats(entity)))
   }
 
@@ -139,6 +150,7 @@ class SyncEngine(
     private val now: Instant,
     private val zone: ZoneId,
     private val failures: MutableMap<String, FailureKind>,
+    private val isBackfill: Boolean,
   ) {
     private val key = mode.name
     private val origins = if (mode == SourceMode.GARMIN_ONLY) setOf(DataOrigin(GARMIN_CONNECT_PACKAGE)) else emptySet()
@@ -148,9 +160,15 @@ class SyncEngine(
 
     private fun allowed(type: HcType) = access.isGranted(type)
 
+    /** Types for which at least one read actually returned (not merely "granted and not failed"). */
+    private val readOk = mutableSetOf<String>()
+
     private suspend fun <T> call(type: HcType, block: suspend HealthConnectClient.() -> T): T? =
       when (val r = source.call(block)) {
-        is HcResult.Ok -> r.value
+        is HcResult.Ok -> {
+          readOk += type.id
+          r.value
+        }
         is HcResult.Failed -> {
           failures[type.id] = r.kind
           null
@@ -266,8 +284,9 @@ class SyncEngine(
             )
           val old = cached[base.id]
           when {
-            old != null && old.statsComputed && old.start == base.start && old.end == base.end && record.endTime.isBefore(now.minus(Duration.ofHours(6))) ->
-              old.copy(exerciseType = base.exerciseType, title = base.title)
+            // A settled, unchanged workout keeps its stats (a backfill recomputes everything, e.g. after new permissions).
+            !isBackfill && old != null && old.statsComputed && old.start == base.start && old.end == base.end &&
+              old.exerciseType == base.exerciseType && record.endTime.isBefore(now.minus(Duration.ofHours(6))) -> old.copy(title = base.title)
             base.start >= eagerFrom -> withStats(base)
             else -> base
           }
@@ -313,12 +332,22 @@ class SyncEngine(
           dao.deleteBodyFrom(BodyKinds.BODY_FAT, fromInstant.toEpochMilli())
           dao.upsertBody(it)
         }
+        // Types read without error in this pass (types not granted are not part of the cache's promise).
+        val succeeded = HcTypes.all.filter { allowed(it) && it.id !in failures }.map { it.id }
+        val complete = failures.isEmpty()
         dao.upsertSyncState(
           SyncStateEntity(
             source = key,
-            coveredFrom = if (previous?.coveredFrom != null && previous.coveredFrom < fromDate) previous.coveredFrom else fromDate,
-            lastSyncAt = stamp,
-            backfilledWithHistory = (previous?.backfilledWithHistory == true) || (from <= today.minusDays(BACKFILL_DAYS_HISTORY) && access.hasHistory),
+            // An incomplete first backfill does not claim a year of history yet.
+            coveredFrom = listOfNotNull(previous?.coveredFrom, fromDate.takeIf { !isBackfill || complete }).minOrNull(),
+            // Only a pass that actually read something counts as a sync for the "aktualizováno" stamp and
+            // for the next incremental window (a worker without background access reads nothing).
+            lastSyncAt = if ((readOk - failures.keys).isNotEmpty()) stamp else previous?.lastSyncAt,
+            backfilledWithHistory = (previous?.backfilledWithHistory == true) || (isBackfill && complete && access.hasHistory),
+            // A revoked type drops out, so granting it again triggers a fresh backfill of its history.
+            backfilledTypes =
+              if (isBackfill) succeeded.joinToString(",")
+              else previous?.backfilledTypes.orEmpty().split(',').filter { id -> HcTypes.all.any { it.id == id && allowed(it) } }.joinToString(","),
           )
         )
       }
@@ -349,18 +378,41 @@ class SyncEngine(
       )
     }
 
+    /**
+     * Distance, calories, heart rate and elevation of a workout. A failed read leaves statsComputed false, so
+     * the next sync or the next opening of the workout tries again; types that are not granted stay null
+     * (a later backfill, triggered by the new permission, recomputes them).
+     */
     suspend fun withStats(e: ExerciseSessionEntity): ExerciseSessionEntity {
       val window = TimeRangeFilter.between(Instant.ofEpochMilli(e.start), Instant.ofEpochMilli(e.end))
-      suspend fun <T : Any> agg(type: HcType, metric: androidx.health.connect.client.aggregate.AggregateMetric<T>): T? =
-        if (!allowed(type)) null else call(type) { aggregate(AggregateRequest(setOf(metric), window, origins))[metric] }
+      var complete = true
+      suspend fun <T : Any> agg(type: HcType, metric: androidx.health.connect.client.aggregate.AggregateMetric<T>): T? {
+        if (!allowed(type)) return null
+        return when (val r = source.call { aggregate(AggregateRequest(setOf(metric), window, origins))[metric] }) {
+          is HcResult.Ok -> {
+            readOk += type.id
+            r.value
+          }
+          is HcResult.Failed -> {
+            failures[type.id] = r.kind
+            complete = false
+            null
+          }
+        }
+      }
       // Heart rate records from Garmin are (near) single samples, so window aggregates are exact enough here.
+      val distance = if (e.exerciseType in DISTANCE_EXERCISES) agg(HcTypes.Distance, DistanceRecord.DISTANCE_TOTAL)?.inMeters else null
+      val kcal = agg(HcTypes.ActiveCalories, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)?.inKilocalories
+      val avgHr = agg(HcTypes.HeartRate, HeartRateRecord.BPM_AVG)
+      val maxHr = agg(HcTypes.HeartRate, HeartRateRecord.BPM_MAX)
+      val elevation = agg(HcTypes.Elevation, ElevationGainedRecord.ELEVATION_GAINED_TOTAL)?.inMeters
       return e.copy(
-        statsComputed = true,
-        distanceMeters = if (e.exerciseType in DISTANCE_EXERCISES) agg(HcTypes.Distance, DistanceRecord.DISTANCE_TOTAL)?.inMeters else null,
-        activeKcal = agg(HcTypes.ActiveCalories, ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL)?.inKilocalories,
-        avgHeartRate = agg(HcTypes.HeartRate, HeartRateRecord.BPM_AVG),
-        maxHeartRate = agg(HcTypes.HeartRate, HeartRateRecord.BPM_MAX),
-        elevationGainMeters = agg(HcTypes.Elevation, ElevationGainedRecord.ELEVATION_GAINED_TOTAL)?.inMeters,
+        statsComputed = complete,
+        distanceMeters = distance,
+        activeKcal = kcal,
+        avgHeartRate = avgHr,
+        maxHeartRate = maxHr,
+        elevationGainMeters = elevation,
       )
     }
   }

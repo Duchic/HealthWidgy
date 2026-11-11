@@ -53,15 +53,18 @@ import kotlin.math.roundToInt
 fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: PaddingValues) {
   val container = LocalContext.current.appContainer
   val colors = LocalMetricColors.current
-  val today = remember { LocalDate.now() }
-  val sessions by remember { container.history.sleep(today.minusDays(120)) }.collectAsStateWithLifecycle(initialValue = emptyList())
-  val nightly by remember { container.history.daily(Metrics.SLEEP, today.minusDays(29)) }.collectAsStateWithLifecycle(initialValue = emptyList())
+  val today = rememberToday()
+  val sessionsOrNull by remember(today) { container.history.sleep(today.minusDays(120)) }.collectAsStateWithLifecycle(initialValue = null)
+  val nightly by remember(today) { container.history.daily(Metrics.SLEEP, today.minusDays(29)) }.collectAsStateWithLifecycle(initialValue = emptyList())
   // One night per wake-up day: the longest session (naps are ignored here).
-  val nights: List<SleepSessionEntity> = sessions.groupBy { it.wakeDate }.values.map { s -> s.maxBy { it.end - it.start } }.sortedByDescending { it.end }
+  val nights: List<SleepSessionEntity> =
+    sessionsOrNull.orEmpty().groupBy { it.wakeDate }.values.map { s -> s.maxBy { it.end - it.start } }.sortedByDescending { it.end }
   var index by rememberSaveable { mutableIntStateOf(0) }
   val night = nights.getOrNull(index.coerceIn(0, (nights.size - 1).coerceAtLeast(0)))
 
   DetailScreen("Spánek", onBack, contentPadding) {
+    // Still loading from the database: show nothing rather than a false "no nights".
+    if (sessionsOrNull == null) return@DetailScreen
     if (night == null) {
       item { Text("Zatím tu nejsou žádné noci. Data se načtou při příští synchronizaci.", style = MaterialTheme.typography.bodyMedium) }
       return@DetailScreen

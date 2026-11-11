@@ -28,6 +28,7 @@ import cz.healthwidgy.data.hc.GARMIN_CONNECT_PACKAGE
 import cz.healthwidgy.data.sync.BodyKinds
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.LineChart
+import cz.healthwidgy.ui.components.TimeLineChart
 import cz.healthwidgy.ui.components.SurfaceCard
 import cz.healthwidgy.ui.components.TileHeader
 import cz.healthwidgy.ui.theme.LocalMetricColors
@@ -40,7 +41,7 @@ import java.time.ZoneId
 fun BodyScreen(onBack: () -> Unit, contentPadding: PaddingValues) {
   val container = LocalContext.current.appContainer
   val color = LocalMetricColors.current.body
-  val today = remember { LocalDate.now() }
+  val today = rememberToday()
   var year by rememberSaveable { mutableStateOf(false) }
   val from = today.minusDays(if (year) 364 else 89).atStartOfDay(ZoneId.systemDefault()).toInstant()
   val weights by remember(from) { container.history.body(BodyKinds.WEIGHT, from) }.collectAsStateWithLifecycle(initialValue = emptyList())
@@ -89,8 +90,10 @@ private fun MeasurementCard(title: String, unit: String, icon: Int, rows: List<B
       val first = perDay.first()
       if (perDay.size > 1) {
         val delta = last.second - first.second
+        val shown = Format.decimal(kotlin.math.abs(delta))
+        val since = Format.dayMonth(LocalDate.parse(first.first))
         Text(
-          "${if (delta < 0) "▼" else "▲"} ${Format.decimal(kotlin.math.abs(delta))} $unit od ${Format.dayMonth(LocalDate.parse(first.first))}",
+          if (shown == Format.decimal(0.0)) "beze změny od $since" else "${if (delta < 0) "▼" else "▲"} $shown $unit od $since",
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(bottom = 4.dp),
@@ -98,15 +101,28 @@ private fun MeasurementCard(title: String, unit: String, icon: Int, rows: List<B
       }
     }
     if (perDay.size > 1) {
-      LineChart(
-        values = perDay.map { it.second },
-        labels = perDay.mapIndexed { i, p -> if (i == 0 || i == perDay.lastIndex) Format.dayMonth(LocalDate.parse(p.first)) else null },
-        color = color,
-        height = 120.dp,
-        modifier = Modifier.padding(top = 8.dp),
-      )
+      // Placed by date, so sparse and dense weighing periods keep their real proportions.
+      WeightTimeChart(perDay, color, 120.dp)
     }
-    Text("Poslední měření ${Format.dayAndTime(Instant.ofEpochMilli(rows.maxOf { it.time })).substringBeforeLast(' ')}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(
+      "Poslední měření ${Format.dayAndTime(Instant.ofEpochMilli(rows.maxOf { it.time })).substringBeforeLast(' ').replaceFirstChar { it.lowercase() }}",
+      style = MaterialTheme.typography.labelSmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+  }
+}
+
+/** Daily values ([date ISO] to value) on a time axis, with the first and last date below. */
+@Composable
+fun WeightTimeChart(perDay: List<Pair<String, Double>>, color: androidx.compose.ui.graphics.Color, height: androidx.compose.ui.unit.Dp) {
+  val zone = ZoneId.systemDefault()
+  val points = perDay.map { (date, v) -> LocalDate.parse(date).atStartOfDay(zone).toInstant() to v }
+  androidx.compose.foundation.layout.Column(Modifier.padding(top = 8.dp)) {
+    TimeLineChart(points, points.first().first, points.last().first, color, height = height, showLastPoint = true)
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+      Text(Format.dayMonth(LocalDate.parse(perDay.first().first)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(Format.dayMonth(LocalDate.parse(perDay.last().first)), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
   }
 }
 

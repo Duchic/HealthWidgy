@@ -42,6 +42,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -70,6 +71,42 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+
+        <!-- Home screen widgets (Jetpack Glance). They render from the local cache. -->
+        <receiver android:name=".widget.TodayWidgetReceiver" android:exported="true" android:label="@string/widget_today">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_today" />
+        </receiver>
+        <receiver android:name=".widget.StepsWidgetReceiver" android:exported="true" android:label="@string/widget_steps">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_steps" />
+        </receiver>
+        <receiver android:name=".widget.SleepWidgetReceiver" android:exported="true" android:label="@string/widget_sleep">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_sleep" />
+        </receiver>
+        <receiver android:name=".widget.HeartWidgetReceiver" android:exported="true" android:label="@string/widget_heart">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_heart" />
+        </receiver>
+        <receiver android:name=".widget.StepsTrendWidgetReceiver" android:exported="true" android:label="@string/widget_steps_trend">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_steps_trend" />
+        </receiver>
+        <receiver android:name=".widget.LastWorkoutWidgetReceiver" android:exported="true" android:label="@string/widget_last_workout">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_last_workout" />
+        </receiver>
+        <receiver android:name=".widget.SingleValueWidgetReceiver" android:exported="true" android:label="@string/widget_single">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_single" />
+        </receiver>
+        <activity
+            android:name=".widget.SingleValueConfigActivity"
+            android:exported="true"
+            android:label="@string/widget_single">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
+        </activity>
 
         <!-- Shares the exported data inventory (JSON) through the system share sheet. -->
         <provider

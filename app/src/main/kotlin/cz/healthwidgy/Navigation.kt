@@ -4,7 +4,11 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,7 +58,7 @@ import cz.healthwidgy.ui.setup.SetupScreen
 
 /** Root: the setup checklist until Health Connect access exists, then the tabbed app. */
 @Composable
-fun HealthWidgyRoot() {
+fun HealthWidgyRoot(destination: String? = null, onDestinationHandled: () -> Unit = {}) {
   val context = LocalContext.current
   val container = context.appContainer
   val accessViewModel: AccessViewModel = viewModel { AccessViewModel(container.healthConnect) }
@@ -94,6 +98,8 @@ fun HealthWidgyRoot() {
         onRequestPermissions = requestPermissions,
         onOpenHealthConnectSettings = { openHealthConnectSettings(context) },
         onOpenPrivacy = { openPrivacy(context) },
+        destination = destination,
+        onDestinationHandled = onDestinationHandled,
       )
   }
 }
@@ -115,6 +121,8 @@ private fun MainNavigation(
   onRequestPermissions: (Set<String>) -> Unit,
   onOpenHealthConnectSettings: () -> Unit,
   onOpenPrivacy: () -> Unit,
+  destination: String?,
+  onDestinationHandled: () -> Unit,
 ) {
   val container = LocalContext.current.appContainer
   val backStack = rememberNavBackStack(OverviewKey)
@@ -124,12 +132,41 @@ private fun MainNavigation(
 
   // New or revoked permissions change what the overview can show: reload immediately.
   LaunchedEffect(access.granted) { overviewViewModel.onAccessChanged(access.granted) }
-  // Keep the history cache fresh: on every start (throttled in the engine) and after a source change.
+  // Keep the history cache fresh: on every start (throttled in the engine) and right after a source or
+  // permission change (forced, so the throttle does not swallow it).
   LifecycleStartEffect(Unit) {
     container.requestSync()
     onStopOrDispose {}
   }
-  LaunchedEffect(settings?.sourceMode, access.granted) { if (settings != null) container.requestSync() }
+  var syncKey by remember { mutableStateOf<Pair<Any?, Set<String>>?>(null) }
+  LaunchedEffect(settings?.sourceMode, access.granted) {
+    if (settings == null) return@LaunchedEffect
+    val key = settings?.sourceMode to access.granted
+    container.requestSync(force = syncKey != null && syncKey != key)
+    syncKey = key
+  }
+
+  // A tap on a widget opens the matching screen.
+  LaunchedEffect(destination) {
+    val target = destination ?: return@LaunchedEffect
+    onDestinationHandled()
+    val key: NavKey? =
+      when {
+        target == "overview" -> null
+        target == "heart" -> HeartKey
+        target == "sleep" -> SleepKey
+        target == "body" -> BodyKey
+        target == "activities" -> null
+        target.startsWith("metric:") -> MetricKey(target.removePrefix("metric:"))
+        target.startsWith("workout:") -> WorkoutKey(target.removePrefix("workout:"))
+        else -> null
+      }
+    backStack.switchTo(if (target == "activities") ActivitiesKey else OverviewKey)
+    key?.let { backStack.add(it) }
+  }
+
+  // Back on the root of another tab returns to Přehled instead of leaving the app.
+  BackHandler(enabled = backStack.size == 1 && backStack.firstOrNull() != OverviewKey) { backStack.switchTo(OverviewKey) }
 
   val back: () -> Unit = { if (backStack.size > 1) backStack.removeLastOrNull() }
   val overviewActions =

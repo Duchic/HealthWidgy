@@ -75,6 +75,8 @@ fun SettingsScreen(
       )
     }
 
+    WidgetsCard()
+
     SurfaceCard(Modifier.fillMaxWidth()) {
       Text("Zdroj dat", style = MaterialTheme.typography.titleMedium)
       SourceOption(

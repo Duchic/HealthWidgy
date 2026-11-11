@@ -40,14 +40,14 @@ import java.time.ZoneId
 fun HeartScreen(onBack: () -> Unit, onOpenResting: () -> Unit, contentPadding: PaddingValues) {
   val container = LocalContext.current.appContainer
   val color = LocalMetricColors.current.heart
-  val today = remember { LocalDate.now() }
+  val today = rememberToday()
   var dayOffset by rememberSaveable { mutableIntStateOf(0) }
   val date = today.minusDays(dayOffset.toLong())
   val zone = ZoneId.systemDefault()
 
   val hourly by remember(date) { container.history.hourly(Metrics.HEART_RATE, date) }.collectAsStateWithLifecycle(initialValue = emptyList())
-  val daily by remember { container.history.daily(Metrics.HEART_RATE, today.minusDays(SyncEngine.HOURLY_DAYS)) }.collectAsStateWithLifecycle(initialValue = emptyList())
-  val resting by remember { container.history.daily(Metrics.RESTING_HR, today.minusDays(29)) }.collectAsStateWithLifecycle(initialValue = emptyList())
+  val daily by remember(today) { container.history.daily(Metrics.HEART_RATE, today.minusDays(SyncEngine.HOURLY_DAYS)) }.collectAsStateWithLifecycle(initialValue = emptyList())
+  val resting by remember(today) { container.history.daily(Metrics.RESTING_HR, today.minusDays(29)) }.collectAsStateWithLifecycle(initialValue = emptyList())
 
   val byHour = hourly.associateBy { Instant.ofEpochMilli(it.hourStart).atZone(zone).hour }
   val avg = (0..23).map { byHour[it]?.avg }

@@ -40,7 +40,9 @@ import java.time.temporal.TemporalAdjusters
 @Composable
 fun ActivitiesScreen(contentPadding: PaddingValues, onOpenWorkout: (String) -> Unit) {
   val container = LocalContext.current.appContainer
-  val workouts by remember { container.history.exercises() }.collectAsStateWithLifecycle(initialValue = emptyList())
+  // null while loading: an empty first frame would reset the restored scroll position after Back.
+  val workoutsOrNull by remember { container.history.exercises() }.collectAsStateWithLifecycle(initialValue = null)
+  val workouts = workoutsOrNull.orEmpty()
   val weeks =
     workouts
       .groupBy { LocalDate.parse(it.date).with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) }
@@ -51,6 +53,7 @@ fun ActivitiesScreen(contentPadding: PaddingValues, onOpenWorkout: (String) -> U
     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
+    if (workoutsOrNull == null) return@LazyColumn
     item { Text("Aktivity", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) }
     if (workouts.isEmpty()) {
       item {
@@ -70,7 +73,8 @@ fun ActivitiesScreen(contentPadding: PaddingValues, onOpenWorkout: (String) -> U
           Text(
             buildString {
               append("${list.size} ${Format.plural(list.size.toLong(), "trénink", "tréninky", "tréninků")} · ${Format.duration(minutes)}")
-              if (km >= 100) append(" · ${Format.km(km)} km")
+              // Older workouts get their distance only when first opened: show a week total only when complete.
+              if (km >= 100 && list.all { it.statsComputed }) append(" · ${Format.km(km)} km")
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -104,6 +104,8 @@ data class SyncStateEntity(
   val lastSyncAt: Long?,
   /** Whether the history permission was granted when the cache was backfilled. */
   val backfilledWithHistory: Boolean,
+  /** Comma-separated HcType ids whose history the last backfill loaded without errors. */
+  val backfilledTypes: String = "",
 )
 
 @Dao
@@ -194,7 +196,7 @@ interface HealthDao {
       BodyMeasurementEntity::class,
       SyncStateEntity::class,
     ],
-  version = 1,
+  version = 2,
   exportSchema = false,
 )
 abstract class HealthDatabase : RoomDatabase() {

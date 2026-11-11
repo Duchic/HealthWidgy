@@ -23,28 +23,46 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.healthwidgy.data.history.SleepStage
 import java.time.Instant
 
-/** Labels under a chart; null entries leave their slot empty (used to thin out dense axes). */
+/**
+ * Labels under a chart, each centred under its slot; null entries are skipped (used to thin out dense
+ * axes). Labels may be wider than their slot, they are only kept inside the chart's edges.
+ */
 @Composable
 fun ChartLabels(labels: List<String?>, modifier: Modifier = Modifier) {
   if (labels.all { it == null }) return
-  Row(modifier.fillMaxWidth()) {
-    labels.forEach { label ->
-      Text(
-        label ?: "",
-        modifier = Modifier.weight(1f),
-        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        textAlign = TextAlign.Center,
-        maxLines = 1,
-        softWrap = false,
-      )
+  val present = labels.withIndex().filter { it.value != null }
+  Layout(
+    modifier = modifier.fillMaxWidth(),
+    content = {
+      present.forEach { (_, label) ->
+        Text(
+          label!!,
+          style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          maxLines = 1,
+          softWrap = false,
+        )
+      }
+    },
+  ) { measurables, constraints ->
+    val placeables = measurables.map { it.measure(Constraints()) }
+    val width = constraints.maxWidth
+    val slot = width.toFloat() / labels.size
+    val height = placeables.maxOfOrNull { it.height } ?: 0
+    layout(width, height) {
+      placeables.forEachIndexed { k, p ->
+        val center = (present[k].index + 0.5f) * slot
+        val x = (center - p.width / 2f).toInt().coerceIn(0, (width - p.width).coerceAtLeast(0))
+        p.placeRelative(x, 0)
+      }
     }
   }
 }

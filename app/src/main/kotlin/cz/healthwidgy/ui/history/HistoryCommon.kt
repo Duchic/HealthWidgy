@@ -3,6 +3,7 @@ package cz.healthwidgy.ui.history
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -76,19 +77,33 @@ fun buildSlots(rows: List<DailyMetricEntity>, period: HistoryPeriod, today: Loca
   }
 }
 
+/** [daysWithData], [average] and [goalHits] count finished days only; [total] and [best] include today. */
 data class Summary(val average: Double?, val total: Double?, val best: Slot?, val goalHits: Int?, val daysWithData: Int)
 
-fun summarize(rows: List<DailyMetricEntity>, from: LocalDate, isSum: Boolean, goal: Double?, value: (DailyMetricEntity) -> Double? = { it.value }): Summary {
+fun summarize(
+  rows: List<DailyMetricEntity>,
+  from: LocalDate,
+  isSum: Boolean,
+  goal: Double?,
+  today: LocalDate = LocalDate.now(),
+  value: (DailyMetricEntity) -> Double? = { it.value },
+): Summary {
   val days = rows.filter { LocalDate.parse(it.date) >= from }.mapNotNull { r -> value(r)?.let { LocalDate.parse(r.date) to it } }
+  // Today is still in progress: it would pull averages down every morning.
+  val finished = days.filter { it.first != today }
   val best = days.maxByOrNull { it.second }
   return Summary(
-    average = days.map { it.second }.takeIf { it.isNotEmpty() }?.average(),
+    average = finished.map { it.second }.takeIf { it.isNotEmpty() }?.average(),
     total = if (isSum) days.sumOf { it.second } else null,
     best = best?.let { Slot(null, Format.weekdayDate(it.first), it.second, date = it.first) },
-    goalHits = goal?.let { g -> days.count { it.second >= g } },
-    daysWithData = days.size,
+    goalHits = goal?.let { g -> finished.count { it.second >= g } },
+    daysWithData = finished.size,
   )
 }
+
+/** Average of slots before today (finished days). */
+fun finishedAverage(slots: List<Slot>, today: LocalDate): Double? =
+  slots.filter { it.date != today }.mapNotNull { it.value }.takeIf { it.isNotEmpty() }?.average()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,6 +112,8 @@ fun DetailTopBar(title: String, onBack: () -> Unit) {
     title = { Text(title) },
     navigationIcon = { IconButton(onClick = onBack) { AppIcon(R.drawable.ic_back, contentDescription = "Zpět", size = 22.dp, tint = MaterialTheme.colorScheme.onSurface) } },
     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+    // The surrounding Scaffold already pads for the status bar.
+    windowInsets = WindowInsets(0, 0, 0, 0),
   )
 }
 

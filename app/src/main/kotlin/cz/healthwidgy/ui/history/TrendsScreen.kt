@@ -102,13 +102,14 @@ private fun MetricTrendCard(def: MetricDef, from: LocalDate, today: LocalDate, t
   val slots = buildSlots(rows, HistoryPeriod.MONTH, today)
   val known = slots.mapNotNull { it.value }
   val latest = slots.lastOrNull { it.value != null }
+  val average = finishedAverage(slots, today)
   fun fmt(v: Double) = def.format(v) + if (def.unit.isNotEmpty()) " ${def.unit}" else ""
   TrendCardFrame(
     title = titleOverride ?: def.label,
     icon = def.icon,
     color = color,
     value = latest?.value?.let(::fmt),
-    caption = if (known.isNotEmpty()) "Ø ${fmt(known.average())}" else null,
+    caption = average?.let { "Ø ${fmt(it)}" },
     onClick = onClick,
   ) {
     if (known.isEmpty()) {

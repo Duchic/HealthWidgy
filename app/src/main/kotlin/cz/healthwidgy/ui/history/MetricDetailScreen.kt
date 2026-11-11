@@ -43,7 +43,7 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
   val color = def.color(LocalMetricColors.current)
   val goal = def.goal(settings)
   val slots = buildSlots(rows, period, today)
-  val summary = summarize(rows, from, def.isSum, goal)
+  val summary = summarize(rows, from, def.isSum, goal, today)
   fun fmt(v: Double?) = v?.let { def.format(it) + if (def.unit.isNotEmpty()) " ${def.unit}" else "" } ?: "–"
 
   DetailScreen(def.label, onBack, contentPadding) {
@@ -77,7 +77,7 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
         )
         if (summary.goalHits != null && goal != null) {
           Text(
-            "Cíl ${def.format(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} dní s daty",
+            "Cíl ${def.format(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} ukončených dní (bez dneška)",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),

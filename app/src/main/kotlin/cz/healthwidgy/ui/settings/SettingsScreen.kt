@@ -79,7 +79,7 @@ fun SettingsScreen(
       SourceOption(
         selected = settings.sourceMode == SourceMode.GARMIN_ONLY,
         title = "Jen Garmin Connect",
-        text = "Doporučeno. Nesčítá kroky z krokoměru telefonu ani z jiných aplikací.",
+        text = "Doporučeno. Kroky, vzdálenost, kalorie, tep, spánek a tréninky jen z Garminu, bez krokoměru telefonu. Váhu a tělesný tuk aplikace bere z kterékoli aplikace (např. chytré váhy).",
         onSelect = { scope.launch { settingsRepository.setSourceMode(SourceMode.GARMIN_ONLY) } },
       )
       SourceOption(

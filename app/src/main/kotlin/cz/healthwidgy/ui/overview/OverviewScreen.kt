@@ -188,7 +188,7 @@ private fun HeroCard(overview: Overview) {
           val n = it.roundToLong()
           HeroStat(R.drawable.ic_stairs, colors.body, Format.int(n), Format.plural(n, "patro", "patra", "pater"))
         }
-        overview.activeKcal?.let { HeroStat(R.drawable.ic_flame, colors.calories, Format.int(it), "kcal aktivně") }
+        overview.totalKcal?.let { HeroStat(R.drawable.ic_flame, colors.calories, Format.int(it), "kcal") }
       }
     }
   }
@@ -289,14 +289,17 @@ private fun CaloriesTile(overview: Overview) {
   SurfaceCard(Modifier.fillMaxWidth(), contentPadding = 12.dp) {
     TileHeader(R.drawable.ic_flame, "Kalorie", colors.calories)
     TileValue(Format.int(total ?: active ?: 0.0), "kcal")
+    // Garmin writes active calories only for workouts, so the highlighted part is "burned while training".
     if (total != null && active != null && total > 0) {
       SegmentBar(
         listOf(active.toFloat() to colors.calories, (total - active).coerceAtLeast(0.0).toFloat() to MaterialTheme.colorScheme.surfaceContainerHighest),
         Modifier.padding(vertical = 6.dp),
       )
-      TileSub("z toho ${Format.int(active)} aktivních")
-    } else if (total == null) {
-      TileSub("aktivní kalorie")
+      TileSub("z toho ${Format.int(active)} při tréninku")
+    } else if (total != null) {
+      TileSub("celkový výdej za den")
+    } else {
+      TileSub("při tréninku")
     }
   }
 }

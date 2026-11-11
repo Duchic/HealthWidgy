@@ -26,10 +26,10 @@ import cz.healthwidgy.data.hc.HcTypes
 import cz.healthwidgy.data.hc.HealthConnectSource
 import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SourceMode
+import cz.healthwidgy.data.sync.DISTANCE_EXERCISES
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.time.Period
 import java.time.ZoneId
 import kotlin.math.roundToLong
@@ -72,6 +72,8 @@ data class SleepSummary(
 )
 
 data class WorkoutSummary(
+  /** Health Connect record id (opens the workout detail). */
+  val id: String,
   val exerciseType: Int,
   val title: String?,
   val start: Instant,
@@ -141,11 +143,20 @@ class OverviewRepository(private val source: HealthConnectSource) {
     val origins = if (settings.sourceMode == SourceMode.GARMIN_ONLY) setOf(DataOrigin(GARMIN_CONNECT_PACKAGE)) else emptySet()
     val today = now.atZone(zone).toLocalDate()
     val startOfDay = today.atStartOfDay(zone).toInstant()
+    val endOfDay = today.plusDays(1).atStartOfDay(zone).toInstant()
+    // For reading records: everything up to now.
     val todayRange = TimeRangeFilter.between(startOfDay, now)
+    // For totals: the whole calendar day. Garmin writes today's distance and total calories as ONE record
+    // spanning 00:00–23:59:59 (updated on every sync); Health Connect prorates records that only partly
+    // overlap the range, so a range ending "now" would report only a fraction (verified on the device).
+    val dayRange = TimeRangeFilter.between(startOfDay, endOfDay)
+    // Body measurements are single readings, so mixing sources cannot double count: take them from any app
+    // (e.g. a smart scale app writes body fat, Garmin does not).
+    val bodyOrigins = emptySet<DataOrigin>()
 
     fun allowed(type: HcType) = type.id !in notGranted
 
-    suspend fun <T : Any> aggregate(type: HcType, metric: AggregateMetric<T>, range: TimeRangeFilter = todayRange): T? {
+    suspend fun <T : Any> aggregate(type: HcType, metric: AggregateMetric<T>, range: TimeRangeFilter = dayRange): T? {
       if (!allowed(type)) return null
       return source
         .call { aggregate(AggregateRequest(metrics = setOf(metric), timeRangeFilter = range, dataOriginFilter = origins)) }
@@ -153,7 +164,14 @@ class OverviewRepository(private val source: HealthConnectSource) {
         .let { (it as? HcResult.Ok)?.value?.get(metric) }
     }
 
-    suspend fun <T : Record> read(type: HcType, recordType: KClass<T>, range: TimeRangeFilter, ascending: Boolean, pageSize: Int): List<T> {
+    suspend fun <T : Record> read(
+      type: HcType,
+      recordType: KClass<T>,
+      range: TimeRangeFilter,
+      ascending: Boolean,
+      pageSize: Int,
+      originFilter: Set<DataOrigin> = origins,
+    ): List<T> {
       if (!allowed(type)) return emptyList()
       return source
         .call {
@@ -161,7 +179,7 @@ class OverviewRepository(private val source: HealthConnectSource) {
             ReadRecordsRequest(
               recordType = recordType,
               timeRangeFilter = range,
-              dataOriginFilter = origins,
+              dataOriginFilter = originFilter,
               ascendingOrder = ascending,
               pageSize = pageSize,
             )
@@ -202,16 +220,16 @@ class OverviewRepository(private val source: HealthConnectSource) {
 
     // Total calories: Health Connect fills every gap without a record with derived BMR (from a default
     // profile if needed) plus active calories of other apps, so the aggregate is never empty. Count only up to
-    // the end of the newest real record and only if a real record contributed.
-    val latestTotal = read(HcTypes.TotalCalories, TotalCaloriesBurnedRecord::class, todayRange, ascending = false, pageSize = 1).firstOrNull()
+    // the end of the newest real record of today and only if a real record contributed.
+    val todayTotals = read(HcTypes.TotalCalories, TotalCaloriesBurnedRecord::class, dayRange, ascending = false, pageSize = 50)
     val totalKcal =
-      latestTotal?.let { record ->
+      todayTotals.maxOfOrNull { it.endTime }?.let { lastEnd ->
         source
           .call {
             aggregate(
               AggregateRequest(
                 metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
-                timeRangeFilter = TimeRangeFilter.between(startOfDay, minOf(record.endTime, now)),
+                timeRangeFilter = TimeRangeFilter.between(startOfDay, minOf(lastEnd, endOfDay)),
                 dataOriginFilter = origins,
               )
             )
@@ -233,7 +251,7 @@ class OverviewRepository(private val source: HealthConnectSource) {
             aggregateGroupByPeriod(
               AggregateGroupByPeriodRequest(
                 metrics = setOf(StepsRecord.COUNT_TOTAL),
-                timeRangeFilter = TimeRangeFilter.between(weekStart.atStartOfDay(), LocalDateTime.ofInstant(now, zone)),
+                timeRangeFilter = TimeRangeFilter.between(weekStart.atStartOfDay(), today.plusDays(1).atStartOfDay()),
                 timeRangeSlicer = Period.ofDays(1),
                 dataOriginFilter = origins,
               )
@@ -283,6 +301,7 @@ class OverviewRepository(private val source: HealthConnectSource) {
         val window = TimeRangeFilter.between(w.startTime, w.endTime)
         val hr = statsOf(heartSamples(w.startTime, w.endTime).first)
         WorkoutSummary(
+          id = w.metadata.id,
           exerciseType = w.exerciseType,
           title = w.title,
           start = w.startTime,
@@ -294,20 +313,22 @@ class OverviewRepository(private val source: HealthConnectSource) {
         )
       }
 
-    // Body: newest weight within 90 days, compared with a measurement about a week older.
+    // Body: newest weight within 90 days (any app), compared with a measurement about a week older.
     val bodyRange = TimeRangeFilter.between(now.minus(Duration.ofDays(90)), now)
-    val weights = read(HcTypes.Weight, WeightRecord::class, bodyRange, ascending = false, pageSize = 100)
-    val bodyFat = read(HcTypes.BodyFat, BodyFatRecord::class, bodyRange, ascending = false, pageSize = 1).firstOrNull()
+    val weights = read(HcTypes.Weight, WeightRecord::class, bodyRange, ascending = false, pageSize = 200, originFilter = bodyOrigins)
+    val bodyFat = read(HcTypes.BodyFat, BodyFatRecord::class, bodyRange, ascending = false, pageSize = 1, originFilter = bodyOrigins).firstOrNull()
     val weight =
       weights.firstOrNull()?.let { latest ->
         val reference =
           weights.firstOrNull { it.time <= latest.time.minus(Duration.ofDays(6)) }?.takeIf { it.time >= latest.time.minus(Duration.ofDays(10)) }
         val latestDay = latest.time.atZone(zone).toLocalDate()
+        // One value per day: a scale app and Garmin often store the same weighing twice.
+        val perDay = weights.distinctBy { it.time.atZone(zone).toLocalDate() }
         WeightSummary(
           kilograms = latest.weight.inKilograms,
           time = latest.time,
           deltaKilograms = reference?.let { latest.weight.inKilograms - it.weight.inKilograms },
-          recent = weights.take(7).map { it.weight.inKilograms }.reversed(),
+          recent = perDay.take(7).map { it.weight.inKilograms }.reversed(),
           bodyFatPercent = bodyFat?.takeIf { it.time.atZone(zone).toLocalDate() == latestDay }?.percentage?.value,
         )
       }
@@ -360,23 +381,5 @@ class OverviewRepository(private val source: HealthConnectSource) {
 
   private companion object {
     val MAIN_SLEEP_MIN: Duration = Duration.ofHours(3)
-
-    /** Exercise types where a distance is meaningful. */
-    val DISTANCE_EXERCISES =
-      setOf(
-        ExerciseSessionRecord.EXERCISE_TYPE_RUNNING,
-        ExerciseSessionRecord.EXERCISE_TYPE_RUNNING_TREADMILL,
-        ExerciseSessionRecord.EXERCISE_TYPE_WALKING,
-        ExerciseSessionRecord.EXERCISE_TYPE_HIKING,
-        ExerciseSessionRecord.EXERCISE_TYPE_BIKING,
-        ExerciseSessionRecord.EXERCISE_TYPE_BIKING_STATIONARY,
-        ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_POOL,
-        ExerciseSessionRecord.EXERCISE_TYPE_SWIMMING_OPEN_WATER,
-        ExerciseSessionRecord.EXERCISE_TYPE_SKIING,
-        ExerciseSessionRecord.EXERCISE_TYPE_ROWING,
-        ExerciseSessionRecord.EXERCISE_TYPE_ROWING_MACHINE,
-        ExerciseSessionRecord.EXERCISE_TYPE_ELLIPTICAL,
-        ExerciseSessionRecord.EXERCISE_TYPE_WHEELCHAIR,
-      )
   }
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: lets the developer dump raw Health Connect data from the PC via adb. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Guarded by DUMP: only the adb shell can send it, other apps cannot. -->
+        <receiver
+            android:name=".debug.DebugDumpReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
+    </application>
+</manifest>

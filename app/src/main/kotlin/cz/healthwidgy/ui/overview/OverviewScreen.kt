@@ -47,14 +47,26 @@ import cz.healthwidgy.ui.components.SegmentBar
 import cz.healthwidgy.ui.components.Sparkline
 import cz.healthwidgy.ui.components.SurfaceCard
 import cz.healthwidgy.ui.components.TileHeader
+import cz.healthwidgy.ui.history.MetricDefs
 import cz.healthwidgy.ui.theme.LocalMetricColors
 import java.time.Duration
 import java.time.ZoneId
 import kotlin.math.roundToLong
 
+/** Where the dashboard cards lead. */
+data class OverviewActions(
+  val openMetric: (String) -> Unit,
+  val openHeart: () -> Unit,
+  val openSleep: () -> Unit,
+  val openBody: () -> Unit,
+  val openWorkout: (String) -> Unit,
+  /** Also refreshes the local history cache. */
+  val syncHistory: () -> Unit,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues) {
+fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues, actions: OverviewActions) {
   val state by viewModel.state.collectAsStateWithLifecycle()
   LifecycleResumeEffect(viewModel) {
     viewModel.refresh()
@@ -63,7 +75,10 @@ fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues) 
 
   PullToRefreshBox(
     isRefreshing = state.loading && state.overview != null,
-    onRefresh = { viewModel.refresh(force = true) },
+    onRefresh = {
+      viewModel.refresh(force = true)
+      actions.syncHistory()
+    },
     modifier = Modifier.fillMaxSize().padding(contentPadding),
   ) {
     val overview = state.overview
@@ -77,13 +92,13 @@ fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues) 
             TextButton(onClick = { viewModel.refresh(force = true) }) { Text("Zkusit znovu") }
           }
         }
-      else -> OverviewContent(overview, state.error, onRefresh = { viewModel.refresh(force = true) })
+      else -> OverviewContent(overview, state.error, actions, onRefresh = { viewModel.refresh(force = true) })
     }
   }
 }
 
 @Composable
-private fun OverviewContent(overview: Overview, error: String?, onRefresh: () -> Unit) {
+private fun OverviewContent(overview: Overview, error: String?, actions: OverviewActions, onRefresh: () -> Unit) {
   val colors = LocalMetricColors.current
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
@@ -99,9 +114,9 @@ private fun OverviewContent(overview: Overview, error: String?, onRefresh: () ->
       return@LazyColumn
     }
 
-    item { HeroCard(overview) }
+    item { HeroCard(overview, onClick = { actions.openMetric(MetricDefs.Steps.id) }) }
 
-    val tiles = buildTiles(overview)
+    val tiles = buildTiles(overview, actions)
     tiles.chunked(2).forEach { row ->
       item {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -111,11 +126,11 @@ private fun OverviewContent(overview: Overview, error: String?, onRefresh: () ->
       }
     }
 
-    overview.workout?.let { item { WorkoutCard(overview) } }
+    overview.workout?.let { w -> item { WorkoutCard(overview, onClick = { actions.openWorkout(w.id) }) } }
 
     if (overview.steps7Days.any { it.value != null }) {
       item {
-        SurfaceCard(Modifier.fillMaxWidth()) {
+        SurfaceCard(Modifier.fillMaxWidth(), onClick = { actions.openMetric(MetricDefs.Steps.id) }) {
           Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             TileHeader(R.drawable.ic_walk, "Kroky · 7 dní", colors.steps)
             // Average of finished days only: today is still in progress.
@@ -167,9 +182,9 @@ private fun Header(overview: Overview, onRefresh: () -> Unit) {
 }
 
 @Composable
-private fun HeroCard(overview: Overview) {
+private fun HeroCard(overview: Overview, onClick: () -> Unit) {
   val colors = LocalMetricColors.current
-  SurfaceCard(Modifier.fillMaxWidth()) {
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
       val steps = overview.steps ?: 0L
       ProgressRing(
@@ -206,11 +221,11 @@ private fun HeroStat(icon: Int, color: Color, value: String, unit: String) {
 private typealias Tile = @Composable () -> Unit
 
 /** Dashboard tiles for the values that exist; missing data hides its tile instead of showing zeros. */
-private fun buildTiles(overview: Overview): List<Tile> = buildList {
-  if (overview.heart != null || overview.restingHeartRate != null) add { HeartTile(overview) }
-  overview.sleep?.let { add { SleepTile(overview) } }
-  if (overview.totalKcal != null || overview.activeKcal != null) add { CaloriesTile(overview) }
-  overview.weight?.let { add { WeightTile(overview) } }
+private fun buildTiles(overview: Overview, actions: OverviewActions): List<Tile> = buildList {
+  if (overview.heart != null || overview.restingHeartRate != null) add { HeartTile(overview, actions.openHeart) }
+  overview.sleep?.let { add { SleepTile(overview, actions.openSleep) } }
+  if (overview.totalKcal != null || overview.activeKcal != null) add { CaloriesTile(overview) { actions.openMetric(MetricDefs.TotalKcal.id) } }
+  overview.weight?.let { add { WeightTile(overview, actions.openBody) } }
 }
 
 @Composable
@@ -227,11 +242,11 @@ private fun TileSub(text: String) {
 }
 
 @Composable
-private fun HeartTile(overview: Overview) {
+private fun HeartTile(overview: Overview, onClick: () -> Unit) {
   val color = LocalMetricColors.current.heart
   val heart = overview.heart
   val resting = overview.restingHeartRate
-  SurfaceCard(Modifier.fillMaxWidth(), contentPadding = 12.dp) {
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
     TileHeader(R.drawable.ic_heart, if (heart?.latestBpm != null) "Tep" else "Klidový tep", color)
     if (heart?.latestBpm != null) {
       TileValue(heart.latestBpm.toString(), "bpm")
@@ -254,10 +269,10 @@ private fun HeartTile(overview: Overview) {
 }
 
 @Composable
-private fun SleepTile(overview: Overview) {
+private fun SleepTile(overview: Overview, onClick: () -> Unit) {
   val colors = LocalMetricColors.current
   val sleep = overview.sleep ?: return
-  SurfaceCard(Modifier.fillMaxWidth(), contentPadding = 12.dp) {
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
     TileHeader(R.drawable.ic_moon, "Spánek", colors.sleep)
     TileValue("${sleep.asleepMinutes / 60} h ${sleep.asleepMinutes % 60}", "min")
     val stages = sleep.stages
@@ -282,11 +297,11 @@ private fun SleepTile(overview: Overview) {
 }
 
 @Composable
-private fun CaloriesTile(overview: Overview) {
+private fun CaloriesTile(overview: Overview, onClick: () -> Unit) {
   val colors = LocalMetricColors.current
   val total = overview.totalKcal
   val active = overview.activeKcal
-  SurfaceCard(Modifier.fillMaxWidth(), contentPadding = 12.dp) {
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
     TileHeader(R.drawable.ic_flame, "Kalorie", colors.calories)
     TileValue(Format.int(total ?: active ?: 0.0), "kcal")
     // Garmin writes active calories only for workouts, so the highlighted part is "burned while training".
@@ -305,10 +320,10 @@ private fun CaloriesTile(overview: Overview) {
 }
 
 @Composable
-private fun WeightTile(overview: Overview) {
+private fun WeightTile(overview: Overview, onClick: () -> Unit) {
   val color = LocalMetricColors.current.body
   val weight = overview.weight ?: return
-  SurfaceCard(Modifier.fillMaxWidth(), contentPadding = 12.dp) {
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
     TileHeader(R.drawable.ic_scale, "Váha", color)
     TileValue(Format.decimal(weight.kilograms), "kg")
     if (weight.recent.size > 1) Sparkline(weight.recent, color, Modifier.fillMaxWidth().height(22.dp).padding(top = 4.dp))
@@ -323,10 +338,10 @@ private fun WeightTile(overview: Overview) {
 }
 
 @Composable
-private fun WorkoutCard(overview: Overview) {
+private fun WorkoutCard(overview: Overview, onClick: () -> Unit) {
   val w = overview.workout ?: return
   val seconds = Duration.between(w.start, w.end).seconds
-  SurfaceCard(Modifier.fillMaxWidth()) {
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
       Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(42.dp)) {
         Box(contentAlignment = Alignment.Center) { AppIcon(R.drawable.ic_run, tint = MaterialTheme.colorScheme.onPrimaryContainer, size = 22.dp) }

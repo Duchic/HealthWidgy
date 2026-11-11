@@ -80,6 +80,25 @@ object Format {
 
   fun weekdayShort(date: LocalDate): String = weekdayShort.format(date).replaceFirstChar { it.titlecase(czech) }
 
+  /** "10. 11." */
+  fun dayMonth(date: LocalDate): String = dayMonth.format(date)
+
+  /** "Út 10. 11." */
+  fun weekdayDate(date: LocalDate): String = "${weekdayShort(date)} ${dayMonth(date)}"
+
+  private val monthShort = DateTimeFormatter.ofPattern("LLL", czech)
+  private val monthYear = DateTimeFormatter.ofPattern("LLLL yyyy", czech)
+
+  /** "lis" (standalone month abbreviation). */
+  fun monthShort(date: LocalDate): String = monthShort.format(date).trimEnd('.')
+
+  /** "Listopad 2026". */
+  fun monthYear(date: LocalDate): String = monthYear.format(date).replaceFirstChar { it.titlecase(czech) }
+
+  /** Range of a week, e.g. "3.–9. 11." or "27. 10.–2. 11.". */
+  fun weekRange(start: LocalDate, end: LocalDate): String =
+    if (start.month == end.month) "${start.dayOfMonth}.–${dayMonth(end)}" else "${dayMonth(start)}–${dayMonth(end)}"
+
   fun signedKg(delta: Double): String = (if (delta < 0) "▼ " else "▲ ") + decimal(abs(delta), 1) + " kg"
 
   /** Czech name of a Health Connect exercise type; unknown types fall back to "Trénink". */

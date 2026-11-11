@@ -31,8 +31,22 @@ import androidx.navigation3.ui.NavDisplay
 import cz.healthwidgy.data.hc.HcAccess
 import cz.healthwidgy.ui.AccessViewModel
 import cz.healthwidgy.ui.components.AppIcon
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
+import androidx.lifecycle.compose.LifecycleStartEffect
+import cz.healthwidgy.ui.history.ActivitiesScreen
+import cz.healthwidgy.ui.history.BodyScreen
+import cz.healthwidgy.ui.history.DetailTopBar
+import cz.healthwidgy.ui.history.HeartScreen
+import cz.healthwidgy.ui.history.MetricDefs
+import cz.healthwidgy.ui.history.MetricDetailScreen
+import cz.healthwidgy.ui.history.SleepScreen
+import cz.healthwidgy.ui.history.TrendsScreen
+import cz.healthwidgy.ui.history.WorkoutDetailScreen
 import cz.healthwidgy.ui.inventory.InventoryScreen
 import cz.healthwidgy.ui.inventory.InventoryViewModel
+import cz.healthwidgy.ui.overview.OverviewActions
 import cz.healthwidgy.ui.overview.OverviewScreen
 import cz.healthwidgy.ui.overview.OverviewViewModel
 import cz.healthwidgy.ui.settings.SettingsScreen
@@ -89,7 +103,8 @@ private data class Tab(val key: NavKey, val label: String, val icon: Int)
 private val tabs =
   listOf(
     Tab(OverviewKey, "Přehled", R.drawable.ic_grid),
-    Tab(InventoryKey, "Data", R.drawable.ic_list),
+    Tab(TrendsKey, "Trendy", R.drawable.ic_trend),
+    Tab(ActivitiesKey, "Aktivity", R.drawable.ic_run),
     Tab(SettingsKey, "Nastavení", R.drawable.ic_tune),
   )
 
@@ -105,16 +120,34 @@ private fun MainNavigation(
   val backStack = rememberNavBackStack(OverviewKey)
   val overviewViewModel: OverviewViewModel = viewModel { OverviewViewModel(container.overview, container.settings) }
   val inventoryViewModel: InventoryViewModel = viewModel { InventoryViewModel(container.inventory, container.healthConnect) }
+  val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = null)
 
   // New or revoked permissions change what the overview can show: reload immediately.
   LaunchedEffect(access.granted) { overviewViewModel.onAccessChanged(access.granted) }
+  // Keep the history cache fresh: on every start (throttled in the engine) and after a source change.
+  LifecycleStartEffect(Unit) {
+    container.requestSync()
+    onStopOrDispose {}
+  }
+  LaunchedEffect(settings?.sourceMode, access.granted) { if (settings != null) container.requestSync() }
+
+  val back: () -> Unit = { if (backStack.size > 1) backStack.removeLastOrNull() }
+  val overviewActions =
+    OverviewActions(
+      openMetric = { backStack.add(MetricKey(it)) },
+      openHeart = { backStack.add(HeartKey) },
+      openSleep = { backStack.add(SleepKey) },
+      openBody = { backStack.add(BodyKey) },
+      openWorkout = { backStack.add(WorkoutKey(it)) },
+      syncHistory = { container.requestSync(force = true) },
+    )
 
   Scaffold(
     bottomBar = {
       NavigationBar {
         tabs.forEach { tab ->
           NavigationBarItem(
-            selected = backStack.lastOrNull() == tab.key,
+            selected = backStack.firstOrNull() == tab.key,
             onClick = { backStack.switchTo(tab.key) },
             icon = { AppIcon(tab.icon, size = 22.dp, tint = LocalContentColor.current) },
             label = { Text(tab.label) },
@@ -125,11 +158,20 @@ private fun MainNavigation(
   ) { padding ->
     NavDisplay(
       backStack = backStack,
-      onBack = { if (backStack.size > 1) backStack.removeLastOrNull() },
+      onBack = back,
       entryProvider =
         entryProvider {
-          entry<OverviewKey> { OverviewScreen(overviewViewModel, padding) }
-          entry<InventoryKey> { InventoryScreen(inventoryViewModel, padding) }
+          entry<OverviewKey> { OverviewScreen(overviewViewModel, padding, overviewActions) }
+          entry<TrendsKey> {
+            TrendsScreen(
+              contentPadding = padding,
+              onOpenMetric = { backStack.add(MetricKey(it)) },
+              onOpenHeart = { backStack.add(HeartKey) },
+              onOpenSleep = { backStack.add(SleepKey) },
+              onOpenBody = { backStack.add(BodyKey) },
+            )
+          }
+          entry<ActivitiesKey> { ActivitiesScreen(padding) { backStack.add(WorkoutKey(it)) } }
           entry<SettingsKey> {
             SettingsScreen(
               settingsRepository = container.settings,
@@ -139,16 +181,28 @@ private fun MainNavigation(
               onRequestPermissions = onRequestPermissions,
               onOpenHealthConnectSettings = onOpenHealthConnectSettings,
               onOpenPrivacy = onOpenPrivacy,
+              onOpenInventory = { backStack.add(InventoryKey) },
             )
+          }
+          entry<MetricKey> { key -> MetricDetailScreen(key.metric, back, padding) }
+          entry<HeartKey> { HeartScreen(back, onOpenResting = { backStack.add(MetricKey(MetricDefs.RestingHr.id)) }, contentPadding = padding) }
+          entry<SleepKey> { SleepScreen(back, onOpenHistory = { backStack.add(MetricKey(MetricDefs.Sleep.id)) }, contentPadding = padding) }
+          entry<BodyKey> { BodyScreen(back, padding) }
+          entry<WorkoutKey> { key -> WorkoutDetailScreen(key.id, back, padding) }
+          entry<InventoryKey> {
+            Column(Modifier.fillMaxSize().padding(padding)) {
+              DetailTopBar("Data v Health Connect", back)
+              InventoryScreen(inventoryViewModel, PaddingValues())
+            }
           }
         },
     )
   }
 }
 
-/** Tabs keep a single entry: switching replaces the stack, so Back leaves the app from any tab. */
+/** Switching tabs replaces the whole stack with the tab root (detail screens of the old tab are dropped). */
 private fun NavBackStack<NavKey>.switchTo(key: NavKey) {
-  if (lastOrNull() == key) return
+  if (size == 1 && firstOrNull() == key) return
   add(key)
   while (size > 1) removeAt(0)
 }

@@ -46,6 +46,7 @@ fun SettingsScreen(
   onRequestPermissions: (Set<String>) -> Unit,
   onOpenHealthConnectSettings: () -> Unit,
   onOpenPrivacy: () -> Unit,
+  onOpenInventory: () -> Unit,
 ) {
   val settings by settingsRepository.settings.collectAsStateWithLifecycle(initialValue = Settings())
   val scope = rememberCoroutineScope()
@@ -139,6 +140,7 @@ fun SettingsScreen(
     SurfaceCard(Modifier.fillMaxWidth()) {
       Text("O aplikaci", style = MaterialTheme.typography.titleMedium)
       Text("HealthWidgy ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      TextButton(onClick = onOpenInventory, contentPadding = PaddingValues(0.dp)) { Text("Data v Health Connect (inventura)") }
       TextButton(onClick = onOpenPrivacy, contentPadding = PaddingValues(0.dp)) { Text("Ochrana soukromí") }
     }
   }

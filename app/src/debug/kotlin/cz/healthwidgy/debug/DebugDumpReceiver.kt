@@ -57,6 +57,7 @@ class DebugDumpReceiver : BroadcastReceiver() {
           when (intent.action) {
             ACTION_DAY -> dumpDay(app, intent.getStringExtra("date")?.let(LocalDate::parse) ?: LocalDate.now())
             ACTION_OVERVIEW -> dumpOverview(app)
+            ACTION_SYNC -> dumpSync(app)
             else -> null
           }
         Log.i(TAG, "dump written: ${out?.absolutePath}")
@@ -81,6 +82,35 @@ class DebugDumpReceiver : BroadcastReceiver() {
       }
     }
     return write(context, "debug-overview.txt", text)
+  }
+
+  /** Runs a forced sync (a backfill if the cache is new) and summarises what landed in the database. */
+  private suspend fun dumpSync(context: Context): File {
+    val container = context.appContainer
+    val started = Instant.now()
+    container.syncEngine.sync(force = true)
+    val took = java.time.Duration.between(started, Instant.now())
+    val mode = container.settings.settings.first().sourceMode.name
+    val dao = container.database.dao()
+    val today = LocalDate.now()
+    val text = buildString {
+      appendLine("Sync took ${took.toMillis()} ms, status ${container.syncEngine.status.value}")
+      appendLine("State: ${dao.syncState(mode)}")
+      for (metric in listOf("steps", "distance", "floors", "total_kcal", "active_kcal", "heart_rate", "resting_hr", "sleep")) {
+        val rows = dao.dailyFlow(metric, mode, "2000-01-01").first()
+        appendLine("daily $metric: ${rows.size} days (${rows.firstOrNull()?.date} .. ${rows.lastOrNull()?.date}); last 4: " + rows.takeLast(4).joinToString { "${it.date}=${it.value?.let { v -> "%.1f".format(v) }}${it.min?.let { m -> " [${m.toInt()}-${it.max?.toInt()}]" } ?: ""}" })
+      }
+      appendLine("hourly steps today: ${dao.hourlyFlow("steps", mode, today.toString()).first().size} hours, heart today: ${dao.hourlyFlow("heart_rate", mode, today.toString()).first().size} hours")
+      val sleeps = dao.sleepFlow(mode, "2000-01-01").first()
+      appendLine("sleep sessions: ${sleeps.size}; latest: ${sleeps.firstOrNull()?.let { "${it.wakeDate} asleep=${it.asleepMinutes} deep=${it.deepMinutes} rem=${it.remMinutes} stages=${it.stages.count { c -> c == ';' } + 1}" }}")
+      val ex = dao.exerciseFlow(mode).first()
+      appendLine("exercises: ${ex.size}")
+      ex.take(12).forEach { appendLine("  ${it.date} type=${it.exerciseType} ${(it.end - it.start) / 60000} min dist=${it.distanceMeters} kcal=${it.activeKcal} hr=${it.avgHeartRate}/${it.maxHeartRate} elev=${it.elevationGainMeters} stats=${it.statsComputed}") }
+      val weights = dao.bodyFlow("weight", 0).first()
+      val fats = dao.bodyFlow("body_fat", 0).first()
+      appendLine("body: ${weights.size} weights, ${fats.size} body fat; latest weight ${weights.lastOrNull()?.let { "${it.date} ${it.value} ${it.origin}" }}")
+    }
+    return write(context, "debug-sync.txt", text)
   }
 
   private suspend fun dumpDay(context: Context, date: LocalDate): File {
@@ -165,5 +195,6 @@ class DebugDumpReceiver : BroadcastReceiver() {
     const val TAG = "HealthWidgyDebug"
     const val ACTION_DAY = "cz.healthwidgy.DUMP_DAY"
     const val ACTION_OVERVIEW = "cz.healthwidgy.DUMP_OVERVIEW"
+    const val ACTION_SYNC = "cz.healthwidgy.SYNC"
   }
 }

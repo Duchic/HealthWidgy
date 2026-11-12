@@ -102,13 +102,19 @@ class WidgetConfigActivity : ComponentActivity() {
   @Composable
   private fun Form(info: WidgetInfo, config: WidgetConfig, choices: Choices, onChange: (Choices) -> Unit, onSave: (Choices) -> Unit, onCancel: () -> Unit) {
     val dark = isSystemInDarkTheme()
+    // One choice only (Jedna hodnota, Kroužek, Kalendář): a tap saves and closes, no extra button.
+    val single = config.slots.size == 1 && config.periods.isEmpty()
     Column(
       Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       Column {
         Text(info.name, style = MaterialTheme.typography.headlineSmall)
-        Text("Vyber, co má widget ukazovat.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+          if (single) "Ťukni na údaj, který má widget ukazovat." else "Vyber, co má widget ukazovat, a ulož.",
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
       }
       config.slots.forEach { slot ->
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -117,7 +123,10 @@ class WidgetConfigActivity : ComponentActivity() {
             slot.options.forEach { metric ->
               FilterChip(
                 selected = choices.metrics[slot.key] == metric,
-                onClick = { onChange(choices.copy(metrics = choices.metrics + (slot.key to metric))) },
+                onClick = {
+                  val picked = choices.copy(metrics = choices.metrics + (slot.key to metric))
+                  if (single) onSave(picked) else onChange(picked)
+                },
                 label = { Text(metric.label) },
                 leadingIcon = {
                   Icon(painterResource(metric.icon), contentDescription = null, tint = Color(if (dark) metric.accent.night else metric.accent.day), modifier = Modifier.size(18.dp))
@@ -146,7 +155,7 @@ class WidgetConfigActivity : ComponentActivity() {
       }
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
         TextButton(onClick = onCancel) { Text("Zrušit") }
-        Button(onClick = { onSave(choices) }) { Text("Uložit") }
+        if (!single) Button(onClick = { onSave(choices) }) { Text("Uložit") }
       }
     }
   }
@@ -160,7 +169,8 @@ class WidgetConfigActivity : ComponentActivity() {
           try {
             val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
             updateAppWidgetState(context, glanceId) { prefs -> WidgetChoices.write(prefs, config, choices.metrics, choices.period) }
-            info.create().update(context, glanceId)
+            // Draw it now, while this screen is still in the foreground (see WidgetUpdater).
+            WidgetUpdater.render(context, appWidgetId, info)
             true
           } catch (e: IllegalArgumentException) {
             false

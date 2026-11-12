@@ -58,6 +58,11 @@ class DebugDumpReceiver : BroadcastReceiver() {
             ACTION_DAY -> dumpDay(app, intent.getStringExtra("date")?.let(LocalDate::parse) ?: LocalDate.now())
             ACTION_OVERVIEW -> dumpOverview(app)
             ACTION_SYNC -> dumpSync(app)
+            ACTION_RENDER -> {
+              // Same path as after a sync: render every placed widget in this process.
+              cz.healthwidgy.widget.WidgetUpdater.updateAll(app)
+              null
+            }
             else -> null
           }
         Log.i(TAG, "dump written: ${out?.absolutePath}")
@@ -196,5 +201,6 @@ class DebugDumpReceiver : BroadcastReceiver() {
     const val ACTION_DAY = "cz.healthwidgy.DUMP_DAY"
     const val ACTION_OVERVIEW = "cz.healthwidgy.DUMP_OVERVIEW"
     const val ACTION_SYNC = "cz.healthwidgy.SYNC"
+    const val ACTION_RENDER = "cz.healthwidgy.RENDER_WIDGETS"
   }
 }

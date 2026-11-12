@@ -138,7 +138,7 @@ class StepsWidget : HealthWidget() {
   }
 }
 
-class StepsWidgetReceiver : GlanceAppWidgetReceiver() {
+class StepsWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = StepsWidget()
 }
 
@@ -208,7 +208,7 @@ private fun MiniStat(context: Context, metric: WidgetMetric, s: WidgetSnapshot, 
   }
 }
 
-class TodayWidgetReceiver : GlanceAppWidgetReceiver() {
+class TodayWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = TodayWidget()
 }
 
@@ -278,7 +278,7 @@ class MultiValueWidget : HealthWidget() {
   }
 }
 
-class MultiValueWidgetReceiver : GlanceAppWidgetReceiver() {
+class MultiValueWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = MultiValueWidget()
 }
 
@@ -341,7 +341,7 @@ class GoalRingsWidget : HealthWidget() {
   }
 }
 
-class GoalRingsWidgetReceiver : GlanceAppWidgetReceiver() {
+class GoalRingsWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = GoalRingsWidget()
 }
 
@@ -418,7 +418,7 @@ class StepsTrendWidget : HealthWidget() {
   }
 }
 
-class StepsTrendWidgetReceiver : GlanceAppWidgetReceiver() {
+class StepsTrendWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = StepsTrendWidget()
 }
 
@@ -477,7 +477,7 @@ class CalendarWidget : HealthWidget() {
   }
 }
 
-class CalendarWidgetReceiver : GlanceAppWidgetReceiver() {
+class CalendarWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = CalendarWidget()
 }
 
@@ -565,7 +565,7 @@ private fun StageBar(parts: List<Pair<Long, ColorProvider>>, width: Dp) {
   }
 }
 
-class SleepWidgetReceiver : GlanceAppWidgetReceiver() {
+class SleepWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = SleepWidget()
 }
 
@@ -597,7 +597,7 @@ class HeartWidget : HealthWidget() {
   }
 }
 
-class HeartWidgetReceiver : GlanceAppWidgetReceiver() {
+class HeartWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = HeartWidget()
 }
 
@@ -654,7 +654,7 @@ class HeartDayWidget : HealthWidget() {
   }
 }
 
-class HeartDayWidgetReceiver : GlanceAppWidgetReceiver() {
+class HeartDayWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = HeartDayWidget()
 }
 
@@ -685,7 +685,7 @@ class SingleValueWidget : HealthWidget() {
   }
 }
 
-class SingleValueWidgetReceiver : GlanceAppWidgetReceiver() {
+class SingleValueWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = SingleValueWidget()
 }
 
@@ -729,6 +729,6 @@ class LastWorkoutWidget : HealthWidget() {
   }
 }
 
-class LastWorkoutWidgetReceiver : GlanceAppWidgetReceiver() {
+class LastWorkoutWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = LastWorkoutWidget()
 }

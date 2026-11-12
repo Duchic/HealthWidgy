@@ -101,10 +101,28 @@
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_single" />
         </receiver>
+        <receiver android:name=".widget.MultiValueWidgetReceiver" android:exported="true" android:label="@string/widget_multi">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_multi" />
+        </receiver>
+        <receiver android:name=".widget.GoalRingsWidgetReceiver" android:exported="true" android:label="@string/widget_goal_rings">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_goal_rings" />
+        </receiver>
+        <receiver android:name=".widget.CalendarWidgetReceiver" android:exported="true" android:label="@string/widget_calendar">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_calendar" />
+        </receiver>
+        <receiver android:name=".widget.HeartDayWidgetReceiver" android:exported="true" android:label="@string/widget_heart_day">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_heart_day" />
+        </receiver>
+        <!-- Shared configuration screen of all configurable widgets (the launcher opens it on placement). -->
         <activity
-            android:name=".widget.SingleValueConfigActivity"
+            android:name=".widget.WidgetConfigActivity"
             android:exported="true"
-            android:label="@string/widget_single">
+            android:excludeFromRecents="true"
+            android:label="@string/widget_config">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" /></intent-filter>
         </activity>
 

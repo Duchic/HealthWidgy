@@ -33,8 +33,14 @@ import cz.healthwidgy.data.hc.HcTypes
 import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SettingsRepository
 import cz.healthwidgy.data.settings.SourceMode
+import cz.healthwidgy.data.settings.ThemeMode
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.SurfaceCard
+import cz.healthwidgy.ui.theme.applyAppTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 
 @Composable
@@ -58,20 +64,35 @@ fun SettingsScreen(
     Text("Nastavení", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
 
     SurfaceCard(Modifier.fillMaxWidth()) {
-      Text("Denní cíl kroků", style = MaterialTheme.typography.titleMedium)
-      FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Settings.STEP_GOAL_OPTIONS.forEach { goal ->
-          FilterChip(
-            selected = settings.stepGoal == goal,
-            onClick = { scope.launch { settingsRepository.setStepGoal(goal) } },
-            label = { Text(Format.int(goal.toLong())) },
-          )
-        }
-      }
+      Text("Denní cíle", style = MaterialTheme.typography.titleMedium)
+      GoalChips("Kroky", Settings.STEP_GOAL_OPTIONS, settings.stepGoal, { Format.int(it.toLong()) }) { scope.launch { settingsRepository.setStepGoal(it) } }
+      GoalChips("Vzdálenost", Settings.DISTANCE_GOAL_OPTIONS, settings.distanceGoalKm, { "$it km" }) { scope.launch { settingsRepository.setDistanceGoalKm(it) } }
+      GoalChips("Patra", Settings.FLOORS_GOAL_OPTIONS, settings.floorsGoal, { it.toString() }) { scope.launch { settingsRepository.setFloorsGoal(it) } }
+      GoalChips("Spánek", Settings.SLEEP_GOAL_OPTIONS, settings.sleepGoalMinutes, { Format.hours(it) }) { scope.launch { settingsRepository.setSleepGoalMinutes(it) } }
       Text(
-        "Automatický cíl z Garminu se do Health Connect nepřenáší, proto ho nastav tady.",
+        "Cíle z Garminu se do Health Connect nepřenášejí, proto je nastav tady. Platí pro grafy i widgety.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+      )
+    }
+
+    SurfaceCard(Modifier.fillMaxWidth()) {
+      val context = LocalContext.current
+      Text("Vzhled", style = MaterialTheme.typography.titleMedium)
+      ThemeChoice("Aplikace", settings.appTheme) { mode ->
+        // Apply after the choice is stored: switching recreates this screen.
+        scope.launch {
+          settingsRepository.setAppTheme(mode)
+          applyAppTheme(context, mode)
+        }
+      }
+      ThemeChoice("Widgety", settings.widgetTheme) { scope.launch { settingsRepository.setWidgetTheme(it) } }
+      Text(
+        "Systém: světlý a tmavý vzhled se přepíná spolu s telefonem (i podle plánu). Barvy se řídí tapetou.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
       )
     }
 
@@ -144,6 +165,29 @@ fun SettingsScreen(
       Text("HealthWidgy ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
       TextButton(onClick = onOpenInventory, contentPadding = PaddingValues(0.dp)) { Text("Data v Health Connect (inventura)") }
       TextButton(onClick = onOpenPrivacy, contentPadding = PaddingValues(0.dp)) { Text("Ochrana soukromí") }
+    }
+  }
+}
+
+@Composable
+private fun GoalChips(title: String, options: List<Int>, selected: Int, label: (Int) -> String, onSelect: (Int) -> Unit) {
+  Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+  FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    options.forEach { option -> FilterChip(selected = selected == option, onClick = { onSelect(option) }, label = { Text(label(option)) }) }
+  }
+}
+
+@Composable
+private fun ThemeChoice(title: String, selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
+  Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
+  SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+    ThemeMode.entries.forEachIndexed { i, mode ->
+      SegmentedButton(
+        selected = selected == mode,
+        onClick = { onSelect(mode) },
+        shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size),
+        label = { Text(mode.label, maxLines = 1) },
+      )
     }
   }
 }

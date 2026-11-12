@@ -16,11 +16,16 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Manual dependency container; reachable from activities, view models, workers and widgets. */
+@OptIn(FlowPreview::class)
 class AppContainer(context: Context) {
   private val appContext = context.applicationContext
 
@@ -39,6 +44,14 @@ class AppContainer(context: Context) {
   init {
     // A new step goal or data source changes what widgets show.
     appScope.launch { settings.settings.distinctUntilChanged().drop(1).collect { WidgetUpdater.updateAll(appContext) } }
+    // The widget picker shows previews in the widget theme: publish them again when it changes, after a
+    // pause, so trying the options one after another uses only one of the few calls allowed per hour.
+    appScope.launch {
+      settings.settings.map { it.widgetTheme }.distinctUntilChanged().drop(1).debounce(3.seconds).collect {
+        previewsPublished.set(true)
+        publishPreviews()
+      }
+    }
   }
 
   /** Starts a sync in the background (throttled inside the engine unless [force]), then redraws widgets. */
@@ -47,8 +60,13 @@ class AppContainer(context: Context) {
       syncEngine.sync(force)
       WidgetUpdater.updateAll(appContext)
       // Widget picker previews from real data, once per app process (the system rate-limits them).
-      if (previewsPublished.compareAndSet(false, true)) WidgetUpdater.publishPreviews(appContext)
+      if (previewsPublished.compareAndSet(false, true)) publishPreviews()
     }
+  }
+
+  /** When the system rejected a preview (rate limit), the next sync of this process tries again. */
+  private suspend fun publishPreviews() {
+    if (!WidgetUpdater.publishPreviews(appContext)) previewsPublished.set(false)
   }
 }
 

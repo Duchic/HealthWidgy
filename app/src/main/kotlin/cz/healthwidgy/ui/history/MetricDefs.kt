@@ -27,16 +27,13 @@ data class MetricDef(
 
 object MetricDefs {
   val Steps = MetricDef(Metrics.STEPS, "Kroky", "", R.drawable.ic_walk, { it.steps }, ChartStyle.BARS, true, { Format.int(it) }, { it.stepGoal.toDouble() })
-  val Distance = MetricDef(Metrics.DISTANCE, "Vzdálenost", "km", R.drawable.ic_route, { it.steps }, ChartStyle.BARS, true, { Format.km(it) })
-  val Floors = MetricDef(Metrics.FLOORS, "Patra", "", R.drawable.ic_stairs, { it.body }, ChartStyle.BARS, true, { Format.int(it) })
+  val Distance = MetricDef(Metrics.DISTANCE, "Vzdálenost", "km", R.drawable.ic_route, { it.distance }, ChartStyle.BARS, true, { Format.km(it) }, { it.distanceGoalKm * 1000.0 })
+  val Floors = MetricDef(Metrics.FLOORS, "Patra", "", R.drawable.ic_stairs, { it.body }, ChartStyle.BARS, true, { Format.int(it) }, { it.floorsGoal.toDouble() })
   val TotalKcal = MetricDef(Metrics.TOTAL_KCAL, "Kalorie", "kcal", R.drawable.ic_flame, { it.calories }, ChartStyle.BARS, true, { Format.int(it) })
   val RestingHr = MetricDef(Metrics.RESTING_HR, "Klidový tep", "bpm", R.drawable.ic_heart, { it.heart }, ChartStyle.LINE, false, { Format.int(it) })
-  val Sleep = MetricDef(Metrics.SLEEP, "Spánek", "", R.drawable.ic_moon, { it.sleep }, ChartStyle.BARS, false, { Format.duration(Math.round(it)) }, { SLEEP_GOAL_MINUTES })
+  val Sleep = MetricDef(Metrics.SLEEP, "Spánek", "", R.drawable.ic_moon, { it.sleep }, ChartStyle.BARS, false, { Format.duration(Math.round(it)) }, { it.sleepGoalMinutes.toDouble() })
 
   val all = listOf(Steps, Distance, Floors, TotalKcal, RestingHr, Sleep)
 
   fun byId(id: String): MetricDef = all.firstOrNull { it.id == id } ?: Steps
-
-  /** Fixed 8 h line on sleep charts (no sleep goal setting yet). */
-  const val SLEEP_GOAL_MINUTES = 480.0
 }

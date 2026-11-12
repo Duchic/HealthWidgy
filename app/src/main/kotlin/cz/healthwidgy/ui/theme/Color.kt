@@ -21,10 +21,11 @@ val tertiaryDark = Color(0xFF3FD0C1)
 val backgroundDark = Color(0xFF0F1319)
 val surfaceContainerDark = Color(0xFF1A2029)
 
-/** Fixed accents per metric (same in the app and, later, in widgets); they do not follow the wallpaper. */
+/** Fixed accents per metric (same hues in the app and in widgets); they do not follow the wallpaper. */
 @Immutable
 data class MetricColors(
   val steps: Color,
+  val distance: Color,
   val heart: Color,
   val sleep: Color,
   val calories: Color,
@@ -39,6 +40,7 @@ data class MetricColors(
 val LightMetricColors =
   MetricColors(
     steps = Color(0xFF239163),
+    distance = Color(0xFF0E8F87),
     heart = Color(0xFFD93A49),
     sleep = Color(0xFF6152D9),
     calories = Color(0xFFE07421),
@@ -53,6 +55,7 @@ val LightMetricColors =
 val DarkMetricColors =
   MetricColors(
     steps = Color(0xFF4CC48D),
+    distance = Color(0xFF4FD1C5),
     heart = Color(0xFFFF6B78),
     sleep = Color(0xFF9A8CFF),
     calories = Color(0xFFFF9C4F),

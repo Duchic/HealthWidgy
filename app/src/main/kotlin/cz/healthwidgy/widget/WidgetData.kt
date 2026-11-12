@@ -5,12 +5,22 @@ import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.db.BodyMeasurementEntity
 import cz.healthwidgy.data.db.ExerciseSessionEntity
 import cz.healthwidgy.data.db.SleepSessionEntity
+import cz.healthwidgy.data.settings.ThemeMode
 import cz.healthwidgy.data.sync.BodyKinds
 import cz.healthwidgy.data.sync.Metrics
 import cz.healthwidgy.data.sync.SyncEngine
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.flow.first
+
+/** One cached day of a metric. */
+data class DayRow(val value: Double?, val min: Double?, val max: Double?)
+
+/** One cached hour of heart rate. */
+data class HourRow(val start: Instant, val min: Double?, val max: Double?, val avg: Double?)
+
+data class Goals(val steps: Int, val floors: Int, val distanceMeters: Double, val sleepMinutes: Int)
 
 /**
  * Everything the widgets show, read from the local database (never from Health Connect directly, so a
@@ -18,56 +28,74 @@ import kotlinx.coroutines.flow.first
  */
 data class WidgetSnapshot(
   val today: LocalDate,
-  val stepGoal: Int,
-  val steps: Double?,
-  val distanceMeters: Double?,
-  val floors: Double?,
-  val totalKcal: Double?,
-  val restingHr: Double?,
-  val hrMin: Double?,
-  val hrMax: Double?,
-  /** Average heart rate of the newest hour with data today. */
-  val lastHourHr: Pair<Instant, Double>?,
-  /** Resting heart rate for the last 7 days, oldest first. */
-  val restingLast7: List<Double?>,
-  /** Steps for the last 7 days, oldest first (today last). */
-  val steps7: List<Pair<LocalDate, Double?>>,
-  /** Sleep for the last 7 nights in minutes, oldest first. */
-  val sleep7: List<Pair<LocalDate, Double?>>,
-  /** Total calories for the last 7 days. */
-  val kcal7: List<Pair<LocalDate, Double?>>,
+  val goals: Goals,
+  val theme: ThemeMode,
+  /** Daily rows per metric id (see [Metrics]) for the last [WidgetData.DAYS] days. */
+  val daily: Map<String, Map<LocalDate, DayRow>>,
+  /** Today's heart rate per hour, oldest first. */
+  val heartHours: List<HourRow>,
   /** The main sleep that ended most recently (within 2 days). */
   val sleep: SleepSessionEntity?,
   val workout: ExerciseSessionEntity?,
-  val weight: BodyMeasurementEntity?,
-  val weightLast7: List<Double>,
-  val bodyFat: BodyMeasurementEntity?,
+  /** Weight and body fat measurements (any source) of the last 120 days, oldest first. */
+  val weights: List<BodyMeasurementEntity>,
+  val bodyFats: List<BodyMeasurementEntity>,
   val lastSyncAt: Instant?,
 ) {
+  fun value(metric: String, date: LocalDate = today): Double? = daily[metric]?.get(date)?.value
+
+  /** The last [count] days of a daily metric, oldest first (today last). */
+  fun days(metric: String, count: Int): List<Pair<LocalDate, Double?>> =
+    (count - 1 downTo 0).map { today.minusDays(it.toLong()) }.map { it to value(metric, it) }
+
+  val steps: Double? get() = value(Metrics.STEPS)
+  val distanceMeters: Double? get() = value(Metrics.DISTANCE)
+  val floors: Double? get() = value(Metrics.FLOORS)
+  val totalKcal: Double? get() = value(Metrics.TOTAL_KCAL)
+
+  /** Today's resting heart rate, or the newest one of the last week. */
+  val restingHr: Pair<LocalDate, Double>?
+    get() = days(Metrics.RESTING_HR, 7).lastOrNull { it.second != null }?.let { it.first to it.second!! }
+
+  val hrMin: Double? get() = daily[Metrics.HEART_RATE]?.get(today)?.min
+  val hrMax: Double? get() = daily[Metrics.HEART_RATE]?.get(today)?.max
+
+  /** Average of the newest hour with heart rate data today. */
+  val lastHourHr: Pair<Instant, Double>?
+    get() = heartHours.lastOrNull { it.avg != null }?.let { it.start to it.avg!! }
+
+  val weight: BodyMeasurementEntity? get() = weights.lastOrNull()
+  val bodyFat: BodyMeasurementEntity? get() = bodyFats.lastOrNull()
+
   val sleepIsLastNight: Boolean
     get() = sleep?.wakeDate == today.toString()
+
+  /** The newest measurement per day for the last [count] days, oldest first. */
+  fun bodyDays(list: List<BodyMeasurementEntity>, count: Int): List<Pair<LocalDate, Double?>> {
+    val byDay = list.groupBy { it.date }.mapValues { (_, v) -> v.maxBy { it.time }.value }
+    return (count - 1 downTo 0).map { today.minusDays(it.toLong()) }.map { it to byDay[it.toString()] }
+  }
 }
 
 object WidgetData {
+  /** Six weeks: the month calendar and 30-day trends. */
+  const val DAYS = 42L
+
+  private val dailyMetrics = listOf(Metrics.STEPS, Metrics.DISTANCE, Metrics.FLOORS, Metrics.TOTAL_KCAL, Metrics.HEART_RATE, Metrics.RESTING_HR, Metrics.SLEEP)
+
   suspend fun load(context: Context): WidgetSnapshot {
     val container = context.appContainer
     val settings = container.settings.settings.first()
     val dao = container.database.dao()
     val mode = settings.sourceMode.name
-    val today = LocalDate.now()
-    val weekFrom = today.minusDays(6)
+    val zone = ZoneId.systemDefault()
+    val today = LocalDate.now(zone)
+    val from = today.minusDays(DAYS - 1).toString()
 
-    suspend fun days(metric: String): Map<LocalDate, DayRow> =
-      dao.dailyFlow(metric, mode, weekFrom.toString()).first().associate { LocalDate.parse(it.date) to DayRow(it.value, it.min, it.max) }
-
-    val steps = days(Metrics.STEPS)
-    val distance = days(Metrics.DISTANCE)
-    val floors = days(Metrics.FLOORS)
-    val kcal = days(Metrics.TOTAL_KCAL)
-    val heart = days(Metrics.HEART_RATE)
-    val resting = days(Metrics.RESTING_HR)
-    val sleepDays = days(Metrics.SLEEP)
-    val week = (0L..6L).map { weekFrom.plusDays(it) }
+    val daily =
+      dailyMetrics.associateWith { metric ->
+        dao.dailyFlow(metric, mode, from).first().associate { LocalDate.parse(it.date) to DayRow(it.value, it.min, it.max) }
+      }
 
     val sleeps = dao.sleepFlow(mode, today.minusDays(2).toString()).first()
     val mainSleep =
@@ -76,34 +104,20 @@ object WidgetData {
         .maxByOrNull { it.key }
         ?.value
         ?.let { s -> s.filter { it.end - it.start >= SyncEngine.MAIN_SLEEP.toMillis() }.maxByOrNull { it.asleepMinutes } ?: s.maxByOrNull { it.asleepMinutes } }
-    val lastHour = dao.hourlyFlow(Metrics.HEART_RATE, mode, today.toString()).first().lastOrNull()
-    val weights = dao.bodyFlow(BodyKinds.WEIGHT, today.minusDays(120).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()).first()
-    val fats = dao.bodyFlow(BodyKinds.BODY_FAT, today.minusDays(120).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()).first()
+    val hours = dao.hourlyFlow(Metrics.HEART_RATE, mode, today.toString()).first().map { HourRow(Instant.ofEpochMilli(it.hourStart), it.min, it.max, it.avg) }
+    val bodyFrom = today.minusDays(120).atStartOfDay(zone).toInstant().toEpochMilli()
 
     return WidgetSnapshot(
       today = today,
-      stepGoal = settings.stepGoal,
-      steps = steps[today]?.value,
-      distanceMeters = distance[today]?.value,
-      floors = floors[today]?.value,
-      totalKcal = kcal[today]?.value,
-      restingHr = resting[today]?.value ?: resting.entries.maxByOrNull { it.key }?.value?.value,
-      hrMin = heart[today]?.min,
-      hrMax = heart[today]?.max,
-      lastHourHr = lastHour?.avg?.let { Instant.ofEpochMilli(lastHour.hourStart) to it },
-      restingLast7 = week.map { resting[it]?.value },
-      steps7 = week.map { it to steps[it]?.value },
-      sleep7 = week.map { it to sleepDays[it]?.value },
-      kcal7 = week.map { it to kcal[it]?.value },
+      goals = Goals(settings.stepGoal, settings.floorsGoal, settings.distanceGoalKm * 1000.0, settings.sleepGoalMinutes),
+      theme = settings.widgetTheme,
+      daily = daily,
+      heartHours = hours,
       sleep = mainSleep,
       workout = dao.exerciseFlow(mode).first().firstOrNull(),
-      weight = weights.lastOrNull(),
-      weightLast7 = weights.groupBy { it.date }.map { (_, v) -> v.maxBy { it.time }.value }.takeLast(7),
-      bodyFat = fats.lastOrNull(),
+      weights = dao.bodyFlow(BodyKinds.WEIGHT, bodyFrom).first(),
+      bodyFats = dao.bodyFlow(BodyKinds.BODY_FAT, bodyFrom).first(),
       lastSyncAt = dao.syncState(mode)?.lastSyncAt?.let(Instant::ofEpochMilli),
     )
   }
 }
-
-/** One cached day of a metric. */
-private data class DayRow(val value: Double?, val min: Double?, val max: Double?)

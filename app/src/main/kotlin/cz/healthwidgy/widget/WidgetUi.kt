@@ -2,12 +2,13 @@ package cz.healthwidgy.widget
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.glance.ColorFilter
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.Image
@@ -19,13 +20,13 @@ import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.background
-import androidx.glance.color.ColorProvider
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
@@ -37,25 +38,6 @@ import cz.healthwidgy.MainActivity
 import cz.healthwidgy.R
 import cz.healthwidgy.ui.Format
 import java.time.Instant
-
-/** Metric accents in widgets: same hues as in the app, lighter variants at night. */
-object WidgetColors {
-  val steps = ColorProvider(day = Color(0xFF239163), night = Color(0xFF4CC48D))
-  val heart = ColorProvider(day = Color(0xFFD93A49), night = Color(0xFFFF6B78))
-  val sleep = ColorProvider(day = Color(0xFF6152D9), night = Color(0xFF9A8CFF))
-  val calories = ColorProvider(day = Color(0xFFE07421), night = Color(0xFFFF9C4F))
-  val body = ColorProvider(day = Color(0xFF64748B), night = Color(0xFF9AA8BC))
-  val workout = ColorProvider(day = Color(0xFF2D5BE3), night = Color(0xFFA8BCFF))
-  val stageDeep = ColorProvider(day = Color(0xFF2C3E9E), night = Color(0xFF4257C9))
-  val stageLight = ColorProvider(day = Color(0xFF5B8DEF), night = Color(0xFF6E9CFF))
-  val stageRem = ColorProvider(day = Color(0xFF8E7CF0), night = Color(0xFFA796FF))
-  val stageAwake = ColorProvider(day = Color(0xFFE59A2F), night = Color(0xFFF2B45A))
-
-  // Bitmaps cannot follow day/night; these mid tones read on both backgrounds.
-  const val STEPS_ARGB = 0xFF2FA872.toInt()
-  const val HEART_ARGB = 0xFFE5505D.toInt()
-  const val BODY_ARGB = 0xFF7D8BA0.toInt()
-}
 
 /** Where a tap on a widget leads inside the app (handled by MainActivity). */
 object Destinations {
@@ -95,7 +77,7 @@ fun WidgetFrame(onClick: Action, padding: Dp = 12.dp, content: @Composable () ->
 fun WidgetLabel(text: String, icon: Int? = null, iconColor: ColorProvider? = null) {
   Row(verticalAlignment = Alignment.CenterVertically) {
     if (icon != null) {
-      Image(ImageProvider(icon), contentDescription = null, modifier = GlanceModifier.size(14.dp), colorFilter = iconColor?.let { androidx.glance.ColorFilter.tint(it) })
+      Image(ImageProvider(icon), contentDescription = null, modifier = GlanceModifier.size(14.dp), colorFilter = iconColor?.let { ColorFilter.tint(it) })
       Spacer(GlanceModifier.width(5.dp))
     }
     Text(text, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.Medium), maxLines = 1)
@@ -114,15 +96,42 @@ fun WidgetValue(value: String, unit: String? = null, size: TextUnit = 22.sp, col
 }
 
 @Composable
-fun WidgetSmall(text: String) {
-  Text(text, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp), maxLines = 1)
+fun WidgetSmall(text: String, modifier: GlanceModifier = GlanceModifier) {
+  Text(text, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp), maxLines = 1, modifier = modifier)
+}
+
+/** Metric icon in its accent color. */
+@Composable
+fun MetricIcon(metric: WidgetMetric, size: Dp = 14.dp) {
+  Image(ImageProvider(metric.icon), contentDescription = null, modifier = GlanceModifier.size(size), colorFilter = ColorFilter.tint(metric.accent.provider()))
+}
+
+/** A white mask bitmap (see [WidgetBitmaps]) tinted with [color]. */
+@Composable
+fun Mask(bitmap: Bitmap, color: ColorProvider, width: Dp, height: Dp) {
+  Image(ImageProvider(bitmap), contentDescription = null, modifier = GlanceModifier.width(width).height(height), colorFilter = ColorFilter.tint(color))
+}
+
+/**
+ * Concentric progress rings (outermost first) with [content] in the middle. Each ring is its own mask
+ * so it can carry its metric's color in light and dark mode.
+ */
+@Composable
+fun Rings(context: Context, rings: List<Pair<Float, Accent>>, sizeDp: Int, strokeDp: Float, content: @Composable () -> Unit = {}) {
+  Box(GlanceModifier.size(sizeDp.dp), contentAlignment = Alignment.Center) {
+    Mask(WidgetBitmaps.ringTracks(context, sizeDp, strokeDp, rings.size), GlanceTheme.colors.onSurface, sizeDp.dp, sizeDp.dp)
+    rings.forEachIndexed { i, (progress, accent) ->
+      if (progress > 0f) Mask(WidgetBitmaps.ringArc(context, sizeDp, strokeDp, progress, i), accent.provider(), sizeDp.dp, sizeDp.dp)
+    }
+    content()
+  }
 }
 
 /** "↻ 9:49" in the corner: tap refreshes from Health Connect. */
 @Composable
 fun RefreshStamp(lastSyncAt: Instant?) {
   Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.clickable(actionRunCallback<RefreshCallback>())) {
-    Image(ImageProvider(R.drawable.ic_sync), contentDescription = "Obnovit", modifier = GlanceModifier.size(12.dp), colorFilter = androidx.glance.ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant))
+    Image(ImageProvider(R.drawable.ic_sync), contentDescription = "Obnovit", modifier = GlanceModifier.size(12.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant))
     Spacer(GlanceModifier.width(3.dp))
     WidgetSmall(lastSyncAt?.let { Format.time(it) } ?: "–")
   }
@@ -130,9 +139,9 @@ fun RefreshStamp(lastSyncAt: Instant?) {
 
 /** Empty state when the cache has nothing for today yet. */
 @Composable
-fun NoDataYet() {
+fun NoDataYet(text: String = "Zatím bez dat") {
   Column(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
-    Text("Zatím bez dat", style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium))
+    Text(text, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium))
     WidgetSmall("Otevři aplikaci HealthWidgy")
   }
 }

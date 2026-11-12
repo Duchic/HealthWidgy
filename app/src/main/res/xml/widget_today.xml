@@ -11,5 +11,6 @@
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
-
+    android:configure="cz.healthwidgy.widget.WidgetConfigActivity"
+    android:widgetFeatures="reconfigurable"
     />

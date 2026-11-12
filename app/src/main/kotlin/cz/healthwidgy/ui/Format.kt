@@ -46,6 +46,12 @@ object Format {
     return if (h > 0) "$h h $m min" else "$m min"
   }
 
+  /** Whole or half hours for goals: "8 h", "7,5 h". */
+  fun hours(minutes: Int): String = decimal(minutes / 60.0, if (minutes % 60 == 0) 0 else 1) + " h"
+
+  /** Compact sleep length for widgets: "7:05". */
+  fun hoursMinutes(minutes: Long): String = "${minutes / 60}:${(minutes % 60).toString().padStart(2, '0')}"
+
   /** "42:10" or "1:02:10" for workout lengths. */
   fun clock(seconds: Long): String {
     val h = seconds / 3600

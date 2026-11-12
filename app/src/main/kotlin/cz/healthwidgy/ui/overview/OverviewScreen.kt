@@ -198,7 +198,7 @@ private fun HeroCard(overview: Overview, onClick: () -> Unit) {
         }
       }
       Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        overview.distanceMeters?.let { HeroStat(R.drawable.ic_route, colors.steps, Format.km(it), "km") }
+        overview.distanceMeters?.let { HeroStat(R.drawable.ic_route, colors.distance, Format.km(it), "km") }
         overview.floors?.let {
           val n = it.roundToLong()
           HeroStat(R.drawable.ic_stairs, colors.body, Format.int(n), Format.plural(n, "patro", "patra", "pater"))

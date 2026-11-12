@@ -36,6 +36,7 @@ import cz.healthwidgy.R
 import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.db.SleepSessionEntity
 import cz.healthwidgy.data.history.stageList
+import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.sync.Metrics
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.AppIcon
@@ -56,6 +57,8 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
   val today = rememberToday()
   val sessionsOrNull by remember(today) { container.history.sleep(today.minusDays(120)) }.collectAsStateWithLifecycle(initialValue = null)
   val nightly by remember(today) { container.history.daily(Metrics.SLEEP, today.minusDays(29)) }.collectAsStateWithLifecycle(initialValue = emptyList())
+  val settings by container.settings.settings.collectAsStateWithLifecycle(initialValue = Settings())
+  val sleepGoal = settings.sleepGoalMinutes
   // One night per wake-up day: the longest session (naps are ignored here).
   val nights: List<SleepSessionEntity> =
     sessionsOrNull.orEmpty().groupBy { it.wakeDate }.values.map { s -> s.maxBy { it.end - it.start } }.sortedByDescending { it.end }
@@ -129,8 +132,8 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
             Text("Ø ${Format.duration(it.average().roundToInt().toLong())}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         }
-        BarChart(slots.map { it.value }, slots.map { it.label }, colors.sleep, goal = MetricDefs.SLEEP_GOAL_MINUTES, height = 120.dp, modifier = Modifier.padding(top = 8.dp))
-        Text("Čárkovaná čára: 8 hodin", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        BarChart(slots.map { it.value }, slots.map { it.label }, colors.sleep, goal = sleepGoal.toDouble(), height = 120.dp, modifier = Modifier.padding(top = 8.dp))
+        Text("Čárkovaná čára: cíl ${Format.hours(sleepGoal)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         TextButton(onClick = onOpenHistory, contentPadding = PaddingValues(0.dp)) { Text("Celá historie spánku") }
       }
     }

@@ -78,7 +78,7 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
         )
         if (summary.goalHits != null && goal != null) {
           Text(
-            "Cíl ${def.format(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} " +
+            "Cíl ${fmt(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} " +
               Format.plural(summary.daysWithData.toLong(), "ukončeného dne", "ukončených dní", "ukončených dní") + " (bez dneška)",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

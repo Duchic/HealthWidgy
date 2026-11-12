@@ -3,18 +3,27 @@
     <string name="privacy_title">Ochrana soukromí</string>
 
     <!-- Widget names (picker) and descriptions -->
+    <string name="widget_config">Nastavení widgetu</string>
     <string name="widget_today">Dnešní přehled</string>
-    <string name="widget_today_desc">Kroky, kalorie, vzdálenost, patra a klidový tep</string>
-    <string name="widget_steps">Kroky</string>
-    <string name="widget_steps_desc">Kroužek s počtem kroků a procentem cíle</string>
+    <string name="widget_today_desc">Kroužek cíle a čtyři hodnoty dle výběru</string>
+    <string name="widget_steps">Kroužek</string>
+    <string name="widget_steps_desc">Jeden cíl (kroky, vzdálenost, patra, spánek) s procentem splnění</string>
     <string name="widget_sleep">Spánek</string>
     <string name="widget_sleep_desc">Délka spánku a fáze poslední noci</string>
     <string name="widget_heart">Srdce</string>
     <string name="widget_heart_desc">Klidový tep, trend 7 dní a dnešní rozsah</string>
-    <string name="widget_steps_trend">Kroky 7 dní</string>
-    <string name="widget_steps_trend_desc">Sloupce kroků za poslední týden s cílem</string>
+    <string name="widget_steps_trend">Trend</string>
+    <string name="widget_steps_trend_desc">Graf vybraného údaje za 7, 14 nebo 30 dní</string>
     <string name="widget_last_workout">Poslední aktivita</string>
     <string name="widget_last_workout_desc">Poslední trénink z Garminu</string>
     <string name="widget_single">Jedna hodnota</string>
     <string name="widget_single_desc">Vybraná hodnota velkým písmem</string>
+    <string name="widget_multi">Více hodnot</string>
+    <string name="widget_multi_desc">Dvě až čtyři vybrané hodnoty vedle sebe</string>
+    <string name="widget_goal_rings">Kroužky cílů</string>
+    <string name="widget_goal_rings_desc">Tři vybrané cíle v soustředných kroužcích</string>
+    <string name="widget_calendar">Kalendář cíle</string>
+    <string name="widget_calendar_desc">Plnění cíle den po dni za posledních 5 týdnů</string>
+    <string name="widget_heart_day">Tep dnes</string>
+    <string name="widget_heart_day_desc">Tep po hodinách od půlnoci s rozsahem a průměrem</string>
 </resources>

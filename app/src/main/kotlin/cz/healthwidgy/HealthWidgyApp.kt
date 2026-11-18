@@ -26,12 +26,14 @@ import kotlinx.coroutines.launch
 
 /** Manual dependency container; reachable from activities, view models, workers and widgets. */
 @OptIn(FlowPreview::class)
-class AppContainer(context: Context) {
+class AppContainer(
+  context: Context,
+  val healthConnect: HealthConnectSource = HealthConnectSource(context.applicationContext),
+) {
   private val appContext = context.applicationContext
 
   /** Outlives screens: syncs keep running when the user navigates away. */
   val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-  val healthConnect = HealthConnectSource(appContext)
   val settings = SettingsRepository(appContext)
   val database = HealthDatabase.create(appContext)
   val overview = OverviewRepository(healthConnect)
@@ -70,15 +72,18 @@ class AppContainer(context: Context) {
   }
 }
 
-class HealthWidgyApp : Application() {
+open class HealthWidgyApp : Application() {
   lateinit var container: AppContainer
     private set
 
   override fun onCreate() {
     super.onCreate()
-    container = AppContainer(this)
+    container = createContainer()
     SyncWorker.schedule(this)
   }
+
+  /** The demo build (src/demo) overrides this to read generated data instead of Health Connect. */
+  protected open fun createContainer(): AppContainer = AppContainer(this)
 }
 
 val Context.appContainer: AppContainer

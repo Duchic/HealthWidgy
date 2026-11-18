@@ -27,6 +27,7 @@ import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.hc.GARMIN_CONNECT_PACKAGE
 import cz.healthwidgy.data.hc.HcTypes
 import cz.healthwidgy.data.hc.endTimeOrNull
+import cz.healthwidgy.data.hc.getOrNull
 import cz.healthwidgy.data.hc.startTimeOrNull
 import cz.healthwidgy.data.settings.SourceMode
 import java.io.File
@@ -120,7 +121,9 @@ class DebugDumpReceiver : BroadcastReceiver() {
 
   private suspend fun dumpDay(context: Context, date: LocalDate): File {
     val zone = ZoneId.systemDefault()
-    val client = HealthConnectClient.getOrCreate(context)
+    // The app's own client: the phone's Health Connect, or the generated data in the demo build (which must
+    // never read the real one).
+    val client = context.appContainer.healthConnect.call { this }.getOrNull() ?: error("Health Connect client unavailable")
     val start = date.atStartOfDay(zone).toInstant()
     val end = date.plusDays(1).atStartOfDay(zone).toInstant()
     val now = Instant.now()

@@ -1,7 +1,9 @@
 package cz.healthwidgy.debug
 
+import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.util.TypedValue
 import android.widget.FrameLayout
@@ -42,11 +44,15 @@ import kotlinx.coroutines.launch
  *   adb shell am start -n cz.healthwidgy/.debug.WidgetGalleryActivity [--ez night true] [--es theme DARK] [--es only Trend]
  *
  * night: render as if the system were in dark mode; theme: override Settings → Vzhled → Widgety;
- * only: show variants whose name contains this text.
+ * only: show variants whose name contains this text; showcase (1 or 2): a home-screen-like page of
+ * widgets for README screenshots (best from the demo build: cz.healthwidgy.demo/cz.healthwidgy.debug.…).
  */
 @OptIn(ExperimentalGlanceRemoteViewsApi::class)
 class WidgetGalleryActivity : ComponentActivity() {
   private class Variant(val name: String, val widget: HealthWidget, val wDp: Int, val hDp: Int, val prefs: Preferences? = null)
+
+  /** A widget in a showcase page, sized in home screen cells (columns of 4, rows of 1 or 2). */
+  private class Tile(val widget: HealthWidget, val cols: Int, val rows: Int, val prefs: Preferences? = null)
 
   private fun prefs(vararg slots: Pair<String, String>, period: Int? = null): Preferences =
     mutablePreferencesOf(*slots.map { (k, v) -> stringPreferencesKey(k) to v }.toTypedArray()).apply {
@@ -86,6 +92,26 @@ class WidgetGalleryActivity : ComponentActivity() {
       Variant("Poslední aktivita 4×1", LastWorkoutWidget(), 401, 96),
     )
 
+  /**
+   * Home-screen-like pages for the README (--es showcase 1|2): rows of widgets on a plain wallpaper, no
+   * captions. Sizes are a little smaller than One UI's so four rows fit on one phone screen.
+   */
+  private val showcases =
+    mapOf(
+      "1" to listOf(
+        listOf(Tile(TodayWidget(), 4, 2)),
+        listOf(Tile(StepsWidget(), 2, 2), Tile(GoalRingsWidget(), 2, 2)),
+        listOf(Tile(StepsTrendWidget(), 4, 2)),
+        listOf(Tile(LastWorkoutWidget(), 4, 1)),
+      ),
+      "2" to listOf(
+        listOf(Tile(SleepWidget(), 4, 2)),
+        listOf(Tile(HeartWidget(), 2, 2), Tile(MultiValueWidget(), 2, 2, prefs("slot3" to "FLOORS", "slot4" to "NONE"))),
+        listOf(Tile(CalendarWidget(), 4, 2)),
+        listOf(Tile(MultiValueWidget(), 4, 1)),
+      ),
+    )
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     // Screenshots over adb: turn the screen on and keep it on; show above the lock screen (this activity
@@ -96,6 +122,7 @@ class WidgetGalleryActivity : ComponentActivity() {
     val night = intent.getBooleanExtra("night", false)
     val themeOverride = intent.getStringExtra("theme")?.let { name -> ThemeMode.entries.firstOrNull { it.name == name } }
     val only = intent.getStringExtra("only")
+    val showcase = intent.getStringExtra("showcase")?.let { showcases[it] }
     val density = resources.displayMetrics.density
 
     // The widgets are inflated in a context with the requested day/night mode, like a launcher would.
@@ -113,6 +140,11 @@ class WidgetGalleryActivity : ComponentActivity() {
       setBackgroundColor(if (night) Color.rgb(40, 44, 52) else Color.rgb(150, 170, 190))
       addView(list)
     })
+
+    if (showcase != null) {
+      showShowcase(showcase, hostContext, night, themeOverride)
+      return
+    }
 
     lifecycleScope.launch {
       val snapshot = WidgetData.load(this@WidgetGalleryActivity)
@@ -134,6 +166,45 @@ class WidgetGalleryActivity : ComponentActivity() {
         val frame = FrameLayout(this@WidgetGalleryActivity)
         list.addView(frame, LinearLayout.LayoutParams((v.wDp * density).toInt(), (v.hDp * density).toInt()))
         frame.addView(rv.apply(hostContext, frame))
+      }
+    }
+  }
+
+  private fun showShowcase(rows: List<List<Tile>>, hostContext: Context, night: Boolean, themeOverride: ThemeMode?) {
+    val density = resources.displayMetrics.density
+    fun px(dp: Int) = (dp * density).toInt()
+    val gap = 12
+    val width = (resources.displayMetrics.widthPixels / density).toInt() - 2 * 16
+    val half = (width - gap) / 2
+    val page =
+      LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        // Below the status bar (cropped from screenshots), like the first row of a home screen.
+        setPadding(px(16), px(56), px(16), 0)
+        background =
+          GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            if (night) intArrayOf(Color.rgb(24, 28, 44), Color.rgb(46, 38, 66)) else intArrayOf(Color.rgb(190, 212, 236), Color.rgb(226, 212, 238)),
+          )
+      }
+    setContentView(page)
+    lifecycleScope.launch {
+      val snapshot = WidgetData.load(this@WidgetGalleryActivity)
+      val mode = themeOverride ?: snapshot.theme
+      rows.forEachIndexed { index, row ->
+        val line = LinearLayout(this@WidgetGalleryActivity).apply { orientation = LinearLayout.HORIZONTAL }
+        page.addView(line, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { if (index > 0) topMargin = px(gap) })
+        row.forEachIndexed { i, tile ->
+          val w = if (tile.cols >= 4) width else half
+          val h = if (tile.rows == 1) 92 else 206
+          val rv =
+            GlanceRemoteViews().compose(this@WidgetGalleryActivity, DpSize(w.dp, h.dp), state = tile.prefs) {
+              WidgetTheme(mode) { tile.widget.Content(this@WidgetGalleryActivity, snapshot) }
+            }.remoteViews
+          val frame = FrameLayout(this@WidgetGalleryActivity)
+          line.addView(frame, LinearLayout.LayoutParams(px(w), px(h)).apply { if (i > 0) leftMargin = px(gap) })
+          frame.addView(rv.apply(hostContext, frame))
+        }
       }
     }
   }

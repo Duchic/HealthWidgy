@@ -25,6 +25,19 @@ android {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
+    // Screenshots and demos: a separate app (cz.healthwidgy.demo) that reads a generated, fictional year of
+    // Garmin-like data instead of Health Connect (src/demo), plus the debug tools. Installs next to the real app.
+    create("demo") {
+      initWith(getByName("debug"))
+      applicationIdSuffix = ".demo"
+      versionNameSuffix = "-demo"
+      matchingFallbacks += "debug"
+    }
+  }
+  sourceSets {
+    getByName("demo") {
+      kotlin.srcDir("src/debug/kotlin")
+    }
   }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17

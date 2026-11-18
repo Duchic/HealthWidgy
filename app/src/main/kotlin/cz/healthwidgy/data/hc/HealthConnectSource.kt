@@ -70,10 +70,16 @@ data class HcAccess(
     get() = permissionsToRequest - granted
 }
 
-/** Thin wrapper around [HealthConnectClient]: availability, permissions and error mapping. */
-class HealthConnectSource(private val context: Context) {
+/**
+ * Thin wrapper around [HealthConnectClient]: availability, permissions and error mapping. The demo build
+ * passes a [clientFactory] that returns generated data instead of the phone's Health Connect.
+ */
+class HealthConnectSource(
+  private val context: Context,
+  clientFactory: () -> HealthConnectClient = { HealthConnectClient.getOrCreate(context) },
+) {
 
-  private val client: HealthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
+  private val client: HealthConnectClient by lazy(clientFactory)
 
   fun sdkStatus(): Int = HealthConnectClient.getSdkStatus(context)
 

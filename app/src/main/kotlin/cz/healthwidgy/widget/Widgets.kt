@@ -689,6 +689,77 @@ class SingleValueWidgetReceiver : HealthWidgetReceiver() {
   override val glanceAppWidget: GlanceAppWidget = SingleValueWidget()
 }
 
+// ---------------------------------------------------------------- Malý kroužek (1×1, configurable)
+
+class MiniRingWidget : HealthWidget() {
+  companion object {
+    val METRIC = Slot("metric", "Cíl v kroužku", WidgetMetric.withGoal, WidgetMetric.STEPS)
+    val config = WidgetConfig(listOf(METRIC))
+  }
+
+  @Composable
+  override fun Content(context: Context, s: WidgetSnapshot) {
+    val size = LocalSize.current
+    val metric = chosen(METRIC) ?: WidgetMetric.STEPS
+    val r = s.readForGoal(metric)
+    WidgetFrame(openApp(context, r.destination), padding = 6.dp) {
+      // The ring fills the shorter side; the icon and the value sit inside it.
+      val ring = (minOf(size.width, size.height) - 12.dp).value.coerceIn(36f, 170f).toInt()
+      val stroke = (ring / 11f).coerceIn(4f, 12f)
+      val inner = ring - 2 * stroke - 8f
+      Box(GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Rings(context, listOf((r.progress ?: 0f) to metric.accent), ring, stroke) {
+          Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            MetricIcon(metric, (ring / 6).coerceIn(10, 24).dp)
+            Text(
+              r.value,
+              style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = fitFontSize(r.value, inner, max = ring / 4).sp, fontWeight = FontWeight.Bold),
+              maxLines = 1,
+            )
+          }
+        }
+      }
+    }
+  }
+}
+
+class MiniRingWidgetReceiver : HealthWidgetReceiver() {
+  override val glanceAppWidget: GlanceAppWidget = MiniRingWidget()
+}
+
+// ---------------------------------------------------------------- Malá hodnota (1×1, configurable)
+
+class MiniValueWidget : HealthWidget() {
+  companion object {
+    val METRIC = Slot("metric", "Hodnota", WidgetMetric.pickerOrder, WidgetMetric.STEPS)
+    val config = WidgetConfig(listOf(METRIC))
+  }
+
+  @Composable
+  override fun Content(context: Context, s: WidgetSnapshot) {
+    val size = LocalSize.current
+    val metric = chosen(METRIC) ?: WidgetMetric.STEPS
+    val r = s.read(metric)
+    val big = minOf(size.width, size.height) >= 140.dp
+    WidgetFrame(openApp(context, r.destination), padding = 8.dp) {
+      Column(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
+        MetricIcon(metric, if (big) 28.dp else 18.dp)
+        Spacer(GlanceModifier.height(2.dp))
+        Text(
+          r.value,
+          style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = fitFontSize(r.value, (size.width - 16.dp).value, max = if (big) 40 else 26).sp, fontWeight = FontWeight.Bold),
+          maxLines = 1,
+        )
+        WidgetSmall(s.compactCaption(metric, r))
+      }
+    }
+  }
+}
+
+class MiniValueWidgetReceiver : HealthWidgetReceiver() {
+  override val glanceAppWidget: GlanceAppWidget = MiniValueWidget()
+}
+
 // ---------------------------------------------------------------- Poslední aktivita (4×1)
 
 class LastWorkoutWidget : HealthWidget() {

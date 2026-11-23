@@ -18,6 +18,10 @@
     <string name="widget_last_workout_desc">Poslední trénink z Garminu</string>
     <string name="widget_single">Jedna hodnota</string>
     <string name="widget_single_desc">Vybraná hodnota velkým písmem</string>
+    <string name="widget_mini_ring">Malý kroužek</string>
+    <string name="widget_mini_ring_desc">Jeden cíl (kroky, vzdálenost, patra, spánek) v kroužku 1×1</string>
+    <string name="widget_mini_value">Malá hodnota</string>
+    <string name="widget_mini_value_desc">Vybraná hodnota s ikonou na ploše 1×1</string>
     <string name="widget_multi">Více hodnot</string>
     <string name="widget_multi_desc">Dvě až čtyři vybrané hodnoty vedle sebe</string>
     <string name="widget_goal_rings">Kroužky cílů</string>

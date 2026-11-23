@@ -118,6 +118,30 @@ class WidgetLogicTest {
   }
 
   @Test
+  fun valueFontShrinksWithTheTextAndStaysWithinBounds() {
+    // 1×1 on One UI: about 77 dp of content width.
+    assertEquals(26, fitFontSize("52", 77f, max = 26))
+    assertEquals(24, fitFontSize("7 369", 77f, max = 26))
+    assertEquals(20, fitFontSize("12 345", 77f, max = 26))
+    assertEquals(10, fitFontSize("1 234 567 890", 40f, max = 26))
+    assertEquals(10, fitFontSize("", 3f, max = 8))
+  }
+
+  @Test
+  fun compactCaptionNamesTheUnitAndAnOlderDay() {
+    val steps = snapshot(daily = mapOf(Metrics.STEPS to day(today to 7369.0)))
+    assertEquals("kroků", steps.compactCaption(WidgetMetric.STEPS, steps.read(WidgetMetric.STEPS)))
+    val resting = snapshot(daily = mapOf(Metrics.RESTING_HR to day(today to 52.0)))
+    assertEquals("bpm v klidu", resting.compactCaption(WidgetMetric.RESTING_HR, resting.read(WidgetMetric.RESTING_HR)))
+    val weight = snapshot(weights = listOf(BodyMeasurementEntity("w", "weight", 0, today.minusDays(1).toString(), 79.6, "x")))
+    assertEquals("kg · včera", weight.compactCaption(WidgetMetric.WEIGHT, weight.read(WidgetMetric.WEIGHT)))
+    val oldNight = snapshot(sleep = night(today.minusDays(3), 430))
+    assertEquals("h · ${Format.dayMonth(today.minusDays(3))}", oldNight.compactCaption(WidgetMetric.SLEEP, oldNight.read(WidgetMetric.SLEEP)))
+    val empty = snapshot()
+    assertEquals("Vzdálenost", empty.compactCaption(WidgetMetric.DISTANCE, empty.read(WidgetMetric.DISTANCE)))
+  }
+
+  @Test
   fun floorsUseCzechPlural() {
     assertEquals("patra", snapshot(daily = mapOf(Metrics.FLOORS to day(today to 3.0))).read(WidgetMetric.FLOORS).unit)
     assertEquals("pater", snapshot(daily = mapOf(Metrics.FLOORS to day(today to 12.0))).read(WidgetMetric.FLOORS).unit)

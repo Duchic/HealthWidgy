@@ -53,6 +53,13 @@ fun multiValueLayout(count: Int, width: Float, height: Float): MultiLayout {
   return MultiLayout(cols, compact, valueSize, showNote = !compact && rowHeight >= 58f)
 }
 
+/**
+ * Font size (sp) at which [text] fits [width] dp on one line, at about 0.62 em per character, between
+ * [min] and [max]. The 1×1 widgets size their value with it, so "52" is large and "12 345" still fits.
+ */
+fun fitFontSize(text: String, width: Float, max: Int, min: Int = 10): Int =
+  (width / (text.length.coerceAtLeast(1) * 0.62f)).toInt().coerceIn(min, max.coerceAtLeast(min))
+
 /** Chart range in whole tens around the day's minimum and maximum (at least 40 bpm tall). */
 fun heartScale(hours: List<WidgetBitmaps.HourBpm>): Pair<Double, Double> {
   val low = floor(hours.minOf { it.min } / 10) * 10

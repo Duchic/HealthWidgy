@@ -2,7 +2,7 @@
 
 **Your Garmin data on your Android home screen.**
 
-HealthWidgy is a small Android app that shows what your Garmin watch records: steps, heart rate, sleep, workouts and weight. It has a clean "Today" dashboard, history screens and eleven home-screen widgets.
+HealthWidgy is a small Android app that shows what your Garmin watch records: steps, heart rate, sleep, workouts and weight. It has a clean "Today" dashboard, history screens and thirteen home-screen widgets, from 1×1 to 4×2.
 
 It reads only the data that the Garmin Connect app already shares with **Android Health Connect**. Everything stays on the phone, and the app has no internet permission.
 
@@ -53,7 +53,7 @@ History screens draw from a local cache, so they open instantly and also work wh
 - **Activities:** workouts grouped by week. The workout detail shows time, distance, pace or speed, average and maximum heart rate, calories, elevation gain, and heart rate and speed charts.
 
 ### Home-screen widgets
-Eleven widgets built with Jetpack Glance. Seven of them let you choose what they show, both when you place them and later.
+Thirteen widgets built with Jetpack Glance, from 1×1 to 4×2. Nine of them let you choose what they show, both when you place them and later.
 
 <table>
   <tr>
@@ -67,10 +67,12 @@ Eleven widgets built with Jetpack Glance. Seven of them let you choose what they
 | Today's overview *(Dnešní přehled)* | 4×2 | A goal ring and four values | The ring and all four values |
 | Multiple values *(Více hodnot)* | 4×1 | Two to four values side by side, adapting to the size | Up to four values |
 | Ring *(Kroužek)* | 2×2 | One goal with its percentage | Steps, distance, floors or sleep |
+| Small ring *(Malý kroužek)* | 1×1 | One goal ring with its icon and value | Steps, distance, floors or sleep |
 | Goal rings *(Kroužky cílů)* | 2×2 | Three concentric goal rings | Each ring |
 | Trend | 4×2 | A bar or line chart with the average | Metric; 7, 14 or 30 days |
 | Goal calendar *(Kalendář cíle)* | 4×2 | The last 5 weeks, day by day, shaded by goal completion | Steps, distance, floors or sleep |
 | Single value *(Jedna hodnota)* | 2×1 | One value in large type | Any of the 9 metrics |
+| Small value *(Malá hodnota)* | 1×1 | An icon, a value and its unit | Any of the 9 metrics |
 | Sleep *(Spánek)* | 4×2 | Last night's duration, times and stages | – |
 | Heart *(Srdce)* | 2×2 | Resting heart rate and its 7-day trend | – |
 | Heart rate today *(Tep dnes)* | 4×2 | Today's heart rate hour by hour | – |

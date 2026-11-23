@@ -27,6 +27,8 @@ import cz.healthwidgy.widget.HealthWidget
 import cz.healthwidgy.widget.HeartDayWidget
 import cz.healthwidgy.widget.HeartWidget
 import cz.healthwidgy.widget.LastWorkoutWidget
+import cz.healthwidgy.widget.MiniRingWidget
+import cz.healthwidgy.widget.MiniValueWidget
 import cz.healthwidgy.widget.MultiValueWidget
 import cz.healthwidgy.widget.SingleValueWidget
 import cz.healthwidgy.widget.SleepWidget
@@ -86,6 +88,16 @@ class WidgetGalleryActivity : ComponentActivity() {
       Variant("Jedna hodnota 2×1", SingleValueWidget(), 187, 96),
       Variant("Jedna hodnota 2×1: klidový tep", SingleValueWidget(), 187, 96, prefs("metric" to "RESTING_HR")),
       Variant("Jedna hodnota 2×2: spánek", SingleValueWidget(), 187, 218, prefs("metric" to "SLEEP")),
+      Variant("Malý kroužek 1×1", MiniRingWidget(), 93, 96),
+      Variant("Malý kroužek 1×1: spánek", MiniRingWidget(), 93, 96, prefs("metric" to "SLEEP")),
+      Variant("Malý kroužek 1×1: vzdálenost", MiniRingWidget(), 93, 96, prefs("metric" to "DISTANCE")),
+      Variant("Malý kroužek 2×2", MiniRingWidget(), 187, 218),
+      Variant("Malá hodnota 1×1", MiniValueWidget(), 93, 96),
+      Variant("Malá hodnota 1×1: kalorie", MiniValueWidget(), 93, 96, prefs("metric" to "CALORIES")),
+      Variant("Malá hodnota 1×1: klidový tep", MiniValueWidget(), 93, 96, prefs("metric" to "RESTING_HR")),
+      Variant("Malá hodnota 1×1: váha", MiniValueWidget(), 93, 96, prefs("metric" to "WEIGHT")),
+      Variant("Malá hodnota 1×1: tuk", MiniValueWidget(), 93, 96, prefs("metric" to "BODY_FAT")),
+      Variant("Malá hodnota 2×2: spánek", MiniValueWidget(), 187, 218, prefs("metric" to "SLEEP")),
       Variant("Spánek 4×2", SleepWidget(), 401, 218),
       Variant("Srdce 2×2", HeartWidget(), 187, 218),
       Variant("Tep dnes 4×2", HeartDayWidget(), 401, 218),
@@ -108,7 +120,12 @@ class WidgetGalleryActivity : ComponentActivity() {
         listOf(Tile(SleepWidget(), 4, 2)),
         listOf(Tile(HeartWidget(), 2, 2), Tile(MultiValueWidget(), 2, 2, prefs("slot3" to "FLOORS", "slot4" to "NONE"))),
         listOf(Tile(CalendarWidget(), 4, 2)),
-        listOf(Tile(MultiValueWidget(), 4, 1)),
+        listOf(
+          Tile(MiniRingWidget(), 1, 1),
+          Tile(MiniRingWidget(), 1, 1, prefs("metric" to "SLEEP")),
+          Tile(MiniValueWidget(), 1, 1, prefs("metric" to "RESTING_HR")),
+          Tile(MiniValueWidget(), 1, 1, prefs("metric" to "WEIGHT")),
+        ),
       ),
     )
 
@@ -175,7 +192,11 @@ class WidgetGalleryActivity : ComponentActivity() {
     fun px(dp: Int) = (dp * density).toInt()
     val gap = 12
     val width = (resources.displayMetrics.widthPixels / density).toInt() - 2 * 16
-    val half = (width - gap) / 2
+    // Four columns: a tile of n columns takes n/4 of the row, minus the gaps between tiles.
+    fun widthOf(cols: Int): Int {
+      val perRow = 4 / cols.coerceIn(1, 4)
+      return (width - (perRow - 1) * gap) / perRow
+    }
     val page =
       LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -195,7 +216,7 @@ class WidgetGalleryActivity : ComponentActivity() {
         val line = LinearLayout(this@WidgetGalleryActivity).apply { orientation = LinearLayout.HORIZONTAL }
         page.addView(line, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { if (index > 0) topMargin = px(gap) })
         row.forEachIndexed { i, tile ->
-          val w = if (tile.cols >= 4) width else half
+          val w = widthOf(tile.cols)
           val h = if (tile.rows == 1) 92 else 206
           val rv =
             GlanceRemoteViews().compose(this@WidgetGalleryActivity, DpSize(w.dp, h.dp), state = tile.prefs) {

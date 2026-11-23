@@ -187,6 +187,34 @@ fun WidgetSnapshot.readForGoal(metric: WidgetMetric): Reading {
   return Reading(NONE, null, "naposledy ${r.note} ${r.value} h", 0f, r.destination)
 }
 
+/** Day the current value of [metric] comes from: today for daily totals, older for measurements and nights. */
+fun WidgetSnapshot.valueDay(metric: WidgetMetric): LocalDate? =
+  when (metric) {
+    WidgetMetric.WEIGHT -> weight?.let { LocalDate.parse(it.date) }
+    WidgetMetric.BODY_FAT -> bodyFat?.let { LocalDate.parse(it.date) }
+    WidgetMetric.RESTING_HR -> restingHr?.first
+    WidgetMetric.SLEEP -> sleep?.let { LocalDate.parse(it.wakeDate) }
+    else -> today
+  }
+
+/**
+ * The line under the value in the 1×1 "Malá hodnota": the unit with a hint of what it measures
+ * ("bpm v klidu", "% tuku"), or with the day when the value is not from today ("kg · včera").
+ */
+fun WidgetSnapshot.compactCaption(metric: WidgetMetric, r: Reading): String {
+  if (r.value == NO_VALUE) return metric.shortLabel
+  val caption =
+    when (metric) {
+      WidgetMetric.STEPS -> Format.plural((steps ?: 0.0).roundToLong(), "krok", "kroky", "kroků")
+      WidgetMetric.RESTING_HR -> "bpm v klidu"
+      WidgetMetric.SLEEP -> "h spánku"
+      WidgetMetric.BODY_FAT -> "% tuku"
+      else -> r.unit ?: metric.shortLabel
+    }
+  val day = valueDay(metric)?.takeIf { it != today } ?: return caption
+  return "${r.unit ?: caption} · ${relativeDay(day, today)}"
+}
+
 /** Day values for trend charts, oldest first (today last). */
 fun WidgetSnapshot.series(metric: WidgetMetric, count: Int): List<Pair<LocalDate, Double?>> =
   when (metric) {

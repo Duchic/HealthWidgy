@@ -40,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.healthwidgy.R
 import cz.healthwidgy.data.hc.FailureKind
 import cz.healthwidgy.data.hc.HcTypes
+import cz.healthwidgy.data.overview.DayValue
 import cz.healthwidgy.data.overview.Overview
 import cz.healthwidgy.data.settings.OverviewCard
 import cz.healthwidgy.data.settings.OverviewCardType
@@ -54,9 +55,14 @@ import cz.healthwidgy.ui.components.SegmentBar
 import cz.healthwidgy.ui.components.Sparkline
 import cz.healthwidgy.ui.components.SurfaceCard
 import cz.healthwidgy.ui.components.TileHeader
+import cz.healthwidgy.ui.components.Hypnogram
+import cz.healthwidgy.ui.components.LineChart
 import cz.healthwidgy.ui.history.MetricDefs
+import cz.healthwidgy.ui.history.WeightTimeChart
+import cz.healthwidgy.ui.history.sleepLaneOf
 import cz.healthwidgy.ui.theme.LocalMetricColors
 import java.time.Duration
+import java.time.LocalDate
 import java.time.ZoneId
 import kotlin.math.roundToLong
 
@@ -253,24 +259,47 @@ private fun OverviewCardContent(card: OverviewCard, overview: Overview, settings
   when (card.type) {
     OverviewCardType.STEPS -> if (card.wide) HeroCard(overview, openSteps) else StepsTile(overview, openSteps)
     OverviewCardType.HEART ->
-      if (overview.heart != null || overview.restingHeartRate != null) HeartTile(overview, actions.openHeart) else EmptyTile(card.type, actions.openHeart)
-    OverviewCardType.SLEEP -> if (overview.sleep != null) SleepTile(overview, actions.openSleep) else EmptyTile(card.type, actions.openSleep)
+      when {
+        overview.heart == null && overview.restingHeartRate == null -> EmptyTile(card.type, actions.openHeart)
+        card.wide -> HeartWideCard(overview, actions.openHeart)
+        else -> HeartTile(overview, actions.openHeart)
+      }
+    OverviewCardType.SLEEP ->
+      when {
+        overview.sleep == null -> EmptyTile(card.type, actions.openSleep)
+        card.wide -> SleepWideCard(overview, actions.openSleep)
+        else -> SleepTile(overview, actions.openSleep)
+      }
     OverviewCardType.CALORIES -> {
       val open = { actions.openMetric(MetricDefs.TotalKcal.id) }
-      if (overview.totalKcal != null || overview.activeKcal != null) CaloriesTile(overview, open) else EmptyTile(card.type, open)
+      when {
+        overview.totalKcal == null && overview.activeKcal == null -> EmptyTile(card.type, open)
+        card.wide -> CaloriesWideCard(overview, open)
+        else -> CaloriesTile(overview, open)
+      }
     }
-    OverviewCardType.WEIGHT -> if (overview.weight != null) WeightTile(overview, actions.openBody) else EmptyTile(card.type, actions.openBody)
+    OverviewCardType.WEIGHT ->
+      when {
+        overview.weight == null -> EmptyTile(card.type, actions.openBody)
+        card.wide -> WeightWideCard(overview, actions.openBody)
+        else -> WeightTile(overview, actions.openBody)
+      }
     OverviewCardType.DISTANCE -> {
       val open = { actions.openMetric(MetricDefs.Distance.id) }
       val goalKm = settings?.distanceGoalKm ?: Settings.DEFAULT_DISTANCE_GOAL_KM
-      overview.distanceMeters?.let { GoalTile(card.type, Format.km(it), "km", it / 1000 / goalKm, "cíl $goalKm km", open) } ?: EmptyTile(card.type, open)
+      overview.distanceMeters?.let {
+        // Wide: the last 7 days in metres, like the goal line.
+        val week = if (card.wide) WeekChart(overview.distance7Days, goalKm * 1000.0) { m -> "${Format.km(m)} km" } else null
+        GoalTile(card.type, Format.km(it), "km", it / 1000 / goalKm, "cíl $goalKm km", open, week, overview.date)
+      } ?: EmptyTile(card.type, open)
     }
     OverviewCardType.FLOORS -> {
       val open = { actions.openMetric(MetricDefs.Floors.id) }
       val goal = settings?.floorsGoal ?: Settings.DEFAULT_FLOORS_GOAL
       overview.floors?.let {
         val n = it.roundToLong()
-        GoalTile(card.type, Format.int(n), Format.plural(n, "patro", "patra", "pater"), it / goal, "cíl $goal ${Format.plural(goal.toLong(), "patro", "patra", "pater")}", open)
+        val week = if (card.wide) WeekChart(overview.floors7Days, goal.toDouble()) { v -> Format.int(v) } else null
+        GoalTile(card.type, Format.int(n), Format.plural(n, "patro", "patra", "pater"), it / goal, "cíl $goal ${Format.plural(goal.toLong(), "patro", "patra", "pater")}", open, week, overview.date)
       } ?: EmptyTile(card.type, open)
     }
     OverviewCardType.WORKOUT -> {
@@ -360,16 +389,182 @@ private fun StepsTile(overview: Overview, onClick: () -> Unit) {
   }
 }
 
-/** A value with a daily goal (distance, floors): the value, a progress bar and the goal. */
+/** The last 7 days for a wide card: values (today last), the goal line if any and how to write the average. */
+private class WeekChart(val days: List<DayValue>, val goal: Double?, val format: (Double) -> String)
+
+/** "Posledních 7 dní" with the average of the finished days, then a bar per day (today highlighted). */
 @Composable
-private fun GoalTile(type: OverviewCardType, value: String, unit: String, progress: Double, goalText: String, onClick: () -> Unit) {
+private fun WeekBars(week: WeekChart, today: LocalDate, color: Color) {
+  if (week.days.none { it.value != null }) return
+  // Average of finished days only: today is still in progress.
+  val finished = week.days.filter { it.date != today }.mapNotNull { it.value }
+  Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+    Text("Posledních 7 dní", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (finished.isNotEmpty()) {
+      Text("Ø ${week.format(finished.average())} / den", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+  }
+  DayBars(
+    values = week.days.map { it.value },
+    labels = week.days.map { Format.weekdayShort(it.date) },
+    color = color,
+    goal = week.goal,
+    barHeight = 48.dp,
+    modifier = Modifier.padding(top = 6.dp),
+  )
+}
+
+/** A value with a daily goal (distance, floors): the value, a progress bar and the goal; wide also the week. */
+@Composable
+private fun GoalTile(
+  type: OverviewCardType,
+  value: String,
+  unit: String,
+  progress: Double,
+  goalText: String,
+  onClick: () -> Unit,
+  week: WeekChart? = null,
+  today: LocalDate? = null,
+) {
   val (icon, color) = type.iconAndColor()
-  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = if (week != null) 14.dp else 12.dp) {
     TileHeader(icon, type.label, color)
     TileValue(value, unit)
     val done = progress.coerceIn(0.0, 1.0).toFloat()
     SegmentBar(listOf(done to color, (1f - done) to MaterialTheme.colorScheme.surfaceContainerHighest), Modifier.padding(vertical = 6.dp))
     TileSub("${(progress * 100).roundToLong()} % · $goalText")
+    if (week != null && today != null) WeekBars(week, today, color)
+  }
+}
+
+/** Heart rate across the card: the latest value and today's range, then the day hour by hour. */
+@Composable
+private fun HeartWideCard(overview: Overview, onClick: () -> Unit) {
+  val color = LocalMetricColors.current.heart
+  val heart = overview.heart
+  val resting = overview.restingHeartRate
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
+    TileHeader(R.drawable.ic_heart, if (heart?.latestBpm != null) "Tep" else "Klidový tep", color)
+    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+      (heart?.latestBpm ?: resting?.bpm)?.let { TileValue(it.toString(), "bpm") }
+      Column(Modifier.padding(bottom = 4.dp)) {
+        val today =
+          listOfNotNull(
+            heart?.latestTime?.let { Format.time(it) },
+            if (heart?.minBpm != null && heart.maxBpm != null) "dnes ${heart.minBpm}–${heart.maxBpm}" else null,
+          ).joinToString(" · ")
+        if (today.isNotEmpty()) TileSub(today)
+        resting?.let { TileSub("klidový ${it.bpm}${if (it.isEstimate) " (odhad)" else ""}") }
+      }
+    }
+    if (overview.heartHours.size > 1) {
+      val byHour = overview.heartHours.associateBy { it.hour }
+      val hours = 0 until 24
+      LineChart(
+        values = hours.map { byHour[it]?.avg },
+        labels = hours.map { if (it % 6 == 0) "$it:00" else null },
+        color = color,
+        band = hours.map { h -> byHour[h]?.let { it.min.toDouble() to it.max.toDouble() } },
+        height = 84.dp,
+        showPoints = false,
+        modifier = Modifier.padding(top = 8.dp),
+      )
+    }
+  }
+}
+
+/** Last night across the card: the stages in time and the minutes of each. */
+@Composable
+private fun SleepWideCard(overview: Overview, onClick: () -> Unit) {
+  val colors = LocalMetricColors.current
+  val sleep = overview.sleep ?: return
+  val stages = sleep.stages
+  if (stages == null || sleep.stageSpans.isEmpty()) {
+    // A night without stages has nothing more to show.
+    SleepTile(overview, onClick)
+    return
+  }
+  val endedToday = sleep.end.atZone(ZoneId.systemDefault()).toLocalDate() == overview.date
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
+    TileHeader(R.drawable.ic_moon, "Spánek", colors.sleep)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+      Box(Modifier.weight(1f)) { TileValue("${sleep.asleepMinutes / 60} h ${sleep.asleepMinutes % 60}", "min") }
+      TileSub(
+        if (endedToday) "${Format.time(sleep.start)} – ${Format.time(sleep.end)}"
+        else "${Format.dayAndTime(sleep.start)} – ${Format.time(sleep.end)}"
+      )
+    }
+    Hypnogram(
+      stages = sleep.stageSpans,
+      start = sleep.start,
+      end = sleep.end,
+      laneColors = listOf(colors.stageAwake, colors.stageRem, colors.stageLight, colors.stageDeep),
+      laneLabels = listOf("Bdění", "REM", "Lehký", "Hluboký"),
+      laneOf = ::sleepLaneOf,
+      modifier = Modifier.padding(top = 8.dp),
+      height = 88.dp,
+    )
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+      StageStat("Hluboký", stages.deepMinutes, colors.stageDeep)
+      StageStat("Lehký", stages.lightMinutes + stages.unspecifiedMinutes, colors.stageLight)
+      StageStat("REM", stages.remMinutes, colors.stageRem)
+      StageStat("Bdění", stages.awakeMinutes, colors.stageAwake)
+    }
+  }
+}
+
+@Composable
+private fun StageStat(label: String, minutes: Long, color: Color) {
+  Column {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+      Box(Modifier.size(8.dp).background(color, CircleShape))
+      Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    Text(Format.duration(minutes), style = MaterialTheme.typography.labelLarge)
+  }
+}
+
+/** Calories across the card: today's total and the part burned training, then the week. */
+@Composable
+private fun CaloriesWideCard(overview: Overview, onClick: () -> Unit) {
+  val colors = LocalMetricColors.current
+  val total = overview.totalKcal
+  val active = overview.activeKcal
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
+    TileHeader(R.drawable.ic_flame, "Kalorie", colors.calories)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+      Box(Modifier.weight(1f)) { TileValue(Format.int(total ?: active ?: 0.0), "kcal") }
+      if (total != null && active != null) TileSub("z toho ${Format.int(active)} při tréninku") else if (total == null) TileSub("při tréninku")
+    }
+    if (total != null && active != null && total > 0) {
+      SegmentBar(
+        listOf(active.toFloat() to colors.calories, (total - active).coerceAtLeast(0.0).toFloat() to MaterialTheme.colorScheme.surfaceContainerHighest),
+        Modifier.padding(top = 6.dp),
+      )
+    }
+    WeekBars(WeekChart(overview.calories7Days, null) { Format.int(it) }, overview.date, colors.calories)
+  }
+}
+
+/** Weight across the card: the latest value, the weekly change and body fat, then 30 days. */
+@Composable
+private fun WeightWideCard(overview: Overview, onClick: () -> Unit) {
+  val color = LocalMetricColors.current.body
+  val weight = overview.weight ?: return
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
+    TileHeader(R.drawable.ic_scale, "Váha", color)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+      Box(Modifier.weight(1f)) { TileValue(Format.decimal(weight.kilograms), "kg") }
+      Column(Modifier.padding(bottom = 4.dp), horizontalAlignment = Alignment.End) {
+        weight.deltaKilograms?.let { TileSub("${Format.signedKg(it)} za týden") }
+        weight.bodyFatPercent?.let { TileSub("tuk ${Format.decimal(it)} %") }
+      }
+    }
+    if (weight.last30Days.size >= 2) {
+      Text("Posledních 30 dní", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+      WeightTimeChart(weight.last30Days.map { (day, kg) -> day.toString() to kg }, color, 72.dp)
+    }
+    TileSub("Poslední měření ${Format.dayAndTime(weight.time).substringBeforeLast(' ').replaceFirstChar { it.lowercase() }}")
   }
 }
 

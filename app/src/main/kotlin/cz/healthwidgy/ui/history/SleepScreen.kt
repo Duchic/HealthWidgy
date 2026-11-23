@@ -100,7 +100,7 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
             end = end,
             laneColors = listOf(colors.stageAwake, colors.stageRem, colors.stageLight, colors.stageDeep),
             laneLabels = listOf("Bdění", "REM", "Lehký", "Hluboký"),
-            laneOf = ::laneOf,
+            laneOf = ::sleepLaneOf,
             modifier = Modifier.padding(top = 12.dp),
           )
           Row(Modifier.fillMaxWidth().padding(start = 54.dp, top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -147,7 +147,8 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
   }
 }
 
-private fun laneOf(type: Int): Int? =
+/** Hypnogram lane of a Health Connect sleep stage: 0 awake, 1 REM, 2 light, 3 deep (also used by Přehled). */
+internal fun sleepLaneOf(type: Int): Int? =
   when (type) {
     SleepSessionRecord.STAGE_TYPE_AWAKE, SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED, SleepSessionRecord.STAGE_TYPE_OUT_OF_BED -> 0
     SleepSessionRecord.STAGE_TYPE_REM -> 1

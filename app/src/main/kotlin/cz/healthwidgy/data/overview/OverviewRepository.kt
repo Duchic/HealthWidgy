@@ -24,6 +24,7 @@ import cz.healthwidgy.data.hc.HcResult
 import cz.healthwidgy.data.hc.HcType
 import cz.healthwidgy.data.hc.HcTypes
 import cz.healthwidgy.data.hc.HealthConnectSource
+import cz.healthwidgy.data.history.SleepStage
 import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SourceMode
 import cz.healthwidgy.data.sync.DISTANCE_EXERCISES
@@ -36,6 +37,27 @@ import kotlin.math.roundToLong
 import kotlin.reflect.KClass
 
 data class DayValue(val date: LocalDate, val value: Double?)
+
+/** Heart rate within one hour of the local day (0–23): range and average of its samples. */
+data class HourRange(val hour: Int, val min: Long, val max: Long, val avg: Double)
+
+/**
+ * Samples grouped by local hour, oldest first. On the autumn clock change two hours start at 2:00; they
+ * share one slot (range of both, average of all their samples).
+ */
+fun hourlyRanges(samples: List<Pair<Instant, Long>>, zone: ZoneId): List<HourRange> =
+  samples
+    .groupBy { (time, _) -> time.atZone(zone).hour }
+    .map { (hour, inHour) -> HourRange(hour, inHour.minOf { it.second }, inHour.maxOf { it.second }, inHour.map { it.second }.average()) }
+    .sortedBy { it.hour }
+
+/** The newest value of each local day from [from] on, oldest first (a scale and Garmin often log one weighing twice). */
+fun latestPerDay(values: List<Pair<Instant, Double>>, zone: ZoneId, from: LocalDate): List<Pair<LocalDate, Double>> =
+  values
+    .groupBy { (time, _) -> time.atZone(zone).toLocalDate() }
+    .filterKeys { !it.isBefore(from) }
+    .map { (day, onDay) -> day to onDay.maxBy { it.first }.second }
+    .sortedBy { it.first }
 
 data class HeartRateStats(
   val latestBpm: Long?,
@@ -69,6 +91,8 @@ data class SleepSummary(
   val asleepMinutes: Long,
   /** Null when the session carries no stages; the UI then shows duration only. */
   val stages: SleepStageTotals?,
+  /** The stages in time, for the hypnogram on a wide card. */
+  val stageSpans: List<SleepStage> = emptyList(),
 )
 
 data class WorkoutSummary(
@@ -94,6 +118,8 @@ data class WeightSummary(
   val recent: List<Double>,
   /** Body fat measured on the same day as the weight, if any. */
   val bodyFatPercent: Double?,
+  /** One value per day for the last 30 days, oldest first (the chart on a wide card). */
+  val last30Days: List<Pair<LocalDate, Double>> = emptyList(),
 )
 
 data class Overview(
@@ -111,6 +137,12 @@ data class Overview(
   val workout: WorkoutSummary?,
   val weight: WeightSummary?,
   val steps7Days: List<DayValue>,
+  /** Today's heart rate per hour, for the wide Tep card. */
+  val heartHours: List<HourRange> = emptyList(),
+  /** The last 7 days (today last) for the wide Vzdálenost, Patra and Kalorie cards. */
+  val distance7Days: List<DayValue> = emptyList(),
+  val floors7Days: List<DayValue> = emptyList(),
+  val calories7Days: List<DayValue> = emptyList(),
   /** Newest Health Connect write by the data source, i.e. roughly the last Garmin sync. */
   val latestSourceWrite: Instant?,
   val refreshedAt: Instant,
@@ -241,33 +273,48 @@ class OverviewRepository(private val source: HealthConnectSource) {
           ?.inKilocalories
       }
 
-    // Steps per day for the last 7 days. LocalDateTime ranges make Health Connect slice by local days.
+    // Day totals for the last 7 days. LocalDateTime ranges make Health Connect slice by local days.
     val weekStart = today.minusDays(6)
-    val stepsByDay: Map<LocalDate, Long> =
-      if (!allowed(HcTypes.Steps)) emptyMap()
-      else
-        source
-          .call {
-            aggregateGroupByPeriod(
-              AggregateGroupByPeriodRequest(
-                metrics = setOf(StepsRecord.COUNT_TOTAL),
-                timeRangeFilter = TimeRangeFilter.between(weekStart.atStartOfDay(), today.plusDays(1).atStartOfDay()),
-                timeRangeSlicer = Period.ofDays(1),
-                dataOriginFilter = origins,
+
+    /**
+     * [realOnly]: skip days without any real record (Health Connect fills total calories with an
+     * estimated BMR even then).
+     */
+    suspend fun <T : Any> lastWeek(type: HcType, metric: AggregateMetric<T>, realOnly: Boolean = false, value: (T) -> Double): List<DayValue> {
+      val byDay: Map<LocalDate, Double> =
+        if (!allowed(type)) emptyMap()
+        else
+          source
+            .call {
+              aggregateGroupByPeriod(
+                AggregateGroupByPeriodRequest(
+                  metrics = setOf(metric),
+                  timeRangeFilter = TimeRangeFilter.between(weekStart.atStartOfDay(), today.plusDays(1).atStartOfDay()),
+                  timeRangeSlicer = Period.ofDays(1),
+                  dataOriginFilter = origins,
+                )
               )
-            )
-          }
-          .also { if (it is HcResult.Failed) failures[HcTypes.Steps.id] = it.kind }
-          .let { result ->
-            (result as? HcResult.Ok)?.value.orEmpty().mapNotNull { group ->
-              group.result[StepsRecord.COUNT_TOTAL]?.let { group.startTime.toLocalDate() to it }
-            }.toMap()
-          }
-    val steps7Days = (0L..6L).map { offset -> weekStart.plusDays(offset).let { DayValue(it, stepsByDay[it]?.toDouble()) } }
+            }
+            .also { if (it is HcResult.Failed) failures[type.id] = it.kind }
+            .let { result ->
+              (result as? HcResult.Ok)?.value.orEmpty().mapNotNull { group ->
+                if (realOnly && group.result.dataOrigins.isEmpty()) null else group.result[metric]?.let { group.startTime.toLocalDate() to value(it) }
+              }.toMap()
+            }
+      return (0L..6L).map { offset -> weekStart.plusDays(offset).let { DayValue(it, byDay[it]) } }
+    }
+    val steps7Days = lastWeek(HcTypes.Steps, StepsRecord.COUNT_TOTAL) { it.toDouble() }
+    val distance7Days = lastWeek(HcTypes.Distance, DistanceRecord.DISTANCE_TOTAL) { it.inMeters }
+    val floors7Days = lastWeek(HcTypes.Floors, FloorsClimbedRecord.FLOORS_CLIMBED_TOTAL) { it }
+    // Today's slice would include the estimated BMR for the rest of the day: use today's real total instead.
+    val calories7Days =
+      lastWeek(HcTypes.TotalCalories, TotalCaloriesBurnedRecord.ENERGY_TOTAL, realOnly = true) { it.inKilocalories }
+        .map { if (it.date == today) it.copy(value = totalKcal) else it }
 
     // Heart rate today.
     val (todaySamples, latestHeartWrite) = heartSamples(startOfDay, now)
     val heart = statsOf(todaySamples)
+    val heartHours = hourlyRanges(todaySamples.map { it.time to it.beatsPerMinute }, zone)
 
     // Last night's sleep: the newest main sleep (3 h+) that ended within the last 36 hours; a nap only if
     // there is nothing longer.
@@ -330,6 +377,7 @@ class OverviewRepository(private val source: HealthConnectSource) {
           deltaKilograms = reference?.let { latest.weight.inKilograms - it.weight.inKilograms },
           recent = perDay.take(7).map { it.weight.inKilograms }.reversed(),
           bodyFatPercent = bodyFat?.takeIf { it.time.atZone(zone).toLocalDate() == latestDay }?.percentage?.value,
+          last30Days = latestPerDay(weights.map { it.time to it.weight.inKilograms }, zone, today.minusDays(29)),
         )
       }
 
@@ -353,6 +401,10 @@ class OverviewRepository(private val source: HealthConnectSource) {
       workout = workout,
       weight = weight,
       steps7Days = steps7Days,
+      heartHours = heartHours,
+      distance7Days = distance7Days,
+      floors7Days = floors7Days,
+      calories7Days = calories7Days,
       latestSourceWrite = latestSourceWrite,
       refreshedAt = now,
       failures = failures,
@@ -376,7 +428,8 @@ class OverviewRepository(private val source: HealthConnectSource) {
         unspecifiedMinutes = m(SleepSessionRecord.STAGE_TYPE_SLEEPING),
       )
     val asleep = totals.deepMinutes + totals.lightMinutes + totals.remMinutes + totals.unspecifiedMinutes
-    return SleepSummary(record.startTime, record.endTime, asleep, totals)
+    val spans = record.stages.sortedBy { it.startTime }.map { SleepStage(it.stage, it.startTime, it.endTime) }
+    return SleepSummary(record.startTime, record.endTime, asleep, totals, spans)
   }
 
   private companion object {

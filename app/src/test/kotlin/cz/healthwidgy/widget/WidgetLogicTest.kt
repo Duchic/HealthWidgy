@@ -187,11 +187,33 @@ class WidgetLogicTest {
 
     val config = WidgetConfig(listOf(required, optional), periods = listOf(7, 30), defaultPeriod = 7)
     val prefs = mutablePreferencesOf()
-    WidgetChoices.write(prefs, config, mapOf("ring" to WidgetMetric.SLEEP, "slot3" to null), 30)
+    WidgetChoices.write(prefs, config, mapOf("ring" to WidgetMetric.SLEEP, "slot3" to null), 30, theme = null)
     assertEquals(WidgetMetric.SLEEP, WidgetChoices.metric(prefs, required))
     assertNull(WidgetChoices.metric(prefs, optional))
     assertEquals(30, WidgetChoices.period(prefs, config))
     assertEquals("Spánek · 30 dní", WidgetChoices.summary(prefs, config))
+  }
+
+  @Test
+  fun widgetThemeIsStoredPerWidgetAndCanFollowTheAppAgain() {
+    val config = WidgetConfig(emptyList())
+    val prefs = mutablePreferencesOf()
+    // Nothing chosen yet: follow Settings → Vzhled → Widgety.
+    assertNull(WidgetChoices.theme(prefs))
+    assertEquals("Vzhled podle nastavení", WidgetChoices.summary(prefs, config))
+
+    WidgetChoices.write(prefs, config, emptyMap(), period = null, theme = ThemeMode.DARK)
+    assertEquals(ThemeMode.DARK, WidgetChoices.theme(prefs))
+    assertEquals("tmavý vzhled", WidgetChoices.summary(prefs, config))
+
+    val single = WidgetConfig(listOf(Slot("metric", "Hodnota", WidgetMetric.pickerOrder, WidgetMetric.STEPS)))
+    WidgetChoices.write(prefs, single, mapOf("metric" to WidgetMetric.WEIGHT), period = null, theme = ThemeMode.LIGHT)
+    assertEquals("Váha · světlý vzhled", WidgetChoices.summary(prefs, single))
+
+    WidgetChoices.write(prefs, single, mapOf("metric" to WidgetMetric.WEIGHT), period = null, theme = null)
+    assertNull(WidgetChoices.theme(prefs))
+    // An unknown stored value (e.g. from a newer version) falls back to the app setting.
+    assertNull(WidgetChoices.theme(mutablePreferencesOf(WidgetChoices.THEME_KEY to "SEPIA")))
   }
 
 }

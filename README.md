@@ -53,7 +53,7 @@ History screens draw from a local cache, so they open instantly and also work wh
 - **Activities:** workouts grouped by week. The workout detail shows time, distance, pace or speed, average and maximum heart rate, calories, elevation gain, and heart rate and speed charts.
 
 ### Home-screen widgets
-Thirteen widgets built with Jetpack Glance, from 1×1 to 4×2. Nine of them let you choose what they show, both when you place them and later.
+Thirteen widgets built with Jetpack Glance, from 1×1 to 4×2. Nine of them let you choose what they show, and every widget can have its own light or dark look. You choose both when you place a widget, and can change them later.
 
 <table>
   <tr>
@@ -73,10 +73,10 @@ Thirteen widgets built with Jetpack Glance, from 1×1 to 4×2. Nine of them let 
 | Goal calendar *(Kalendář cíle)* | 4×2 | The last 5 weeks, day by day, shaded by goal completion | Steps, distance, floors or sleep |
 | Single value *(Jedna hodnota)* | 2×1 | One value in large type | Any of the 9 metrics |
 | Small value *(Malá hodnota)* | 1×1 | An icon, a value and its unit | Any of the 9 metrics |
-| Sleep *(Spánek)* | 4×2 | Last night's duration, times and stages | – |
-| Heart *(Srdce)* | 2×2 | Resting heart rate and its 7-day trend | – |
-| Heart rate today *(Tep dnes)* | 4×2 | Today's heart rate hour by hour | – |
-| Latest activity *(Poslední aktivita)* | 4×1 | The latest workout | – |
+| Sleep *(Spánek)* | 4×2 | Last night's duration, times and stages | Look only |
+| Heart *(Srdce)* | 2×2 | Resting heart rate and its 7-day trend | Look only |
+| Heart rate today *(Tep dnes)* | 4×2 | Today's heart rate hour by hour | Look only |
+| Latest activity *(Poslední aktivita)* | 4×1 | The latest workout | Look only |
 
 You can choose from 9 metrics: steps, calories, distance, floors, resting heart rate, sleep, weight, heart rate in the last hour and body fat.
 
@@ -86,12 +86,15 @@ You can choose from 9 metrics: steps, calories, distance, floors, resting heart 
   - when the app opens;
   - when you pull down on the Today screen;
   - when you tap ↻ on the *Today's overview* or *Heart rate today* widget.
-- **Theme:** widgets follow the system or stay light or dark. Their colours come from your wallpaper (Material You).
+- **Theme:**
+  - By default all widgets follow *Settings → Appearance → Widgets*: the system, light or dark.
+  - Each widget can override that with its own look (system, light or dark), for example a dark widget on a phone in light mode.
+  - Colours come from your wallpaper (Material You).
 - **Previews:** on Android 15+ the widget picker shows previews drawn from your own data.
 
 ### Settings
 - **Daily goals** for steps, distance, floors and sleep. Garmin does not share its goals with Health Connect, so you set them here.
-- **Appearance:** System, Light or Dark, set separately for the app and for the widgets.
+- **Appearance:** System, Light or Dark, set separately for the app and for the widgets. A single widget can also have its own look.
 - **Widgets:** add any widget from inside the app and edit the ones already placed.
 - **Data source:** Garmin Connect only (the default) or all apps in Health Connect.
 - **Permissions:** how many data types are allowed and whether background reading and older data are on, with buttons to ask for what is missing.

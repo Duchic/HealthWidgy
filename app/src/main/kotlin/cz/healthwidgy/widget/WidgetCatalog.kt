@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.LocalState
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import cz.healthwidgy.data.settings.ThemeMode
 
 /** A place in a widget the user fills with a metric. [optional] slots can also be left empty. */
 data class Slot(val key: String, val title: String, val options: List<WidgetMetric>, val default: WidgetMetric, val optional: Boolean = false) {
@@ -22,6 +23,11 @@ object WidgetChoices {
   const val EMPTY = "NONE"
   val PERIOD_KEY = intPreferencesKey("period")
 
+  /** This widget's own theme; absent = follow Settings → Vzhled → Widgety. */
+  val THEME_KEY = stringPreferencesKey("theme")
+
+  fun theme(prefs: Preferences?): ThemeMode? = prefs?.get(THEME_KEY)?.let { name -> ThemeMode.entries.firstOrNull { it.name == name } }
+
   /** The slot's metric; null when the user left an optional slot empty. */
   fun metric(prefs: Preferences?, slot: Slot): WidgetMetric? {
     val stored = prefs?.get(slot.prefKey) ?: return slot.default
@@ -31,16 +37,35 @@ object WidgetChoices {
 
   fun period(prefs: Preferences?, config: WidgetConfig): Int = prefs?.get(PERIOD_KEY)?.takeIf { it in config.periods } ?: config.defaultPeriod
 
-  fun write(prefs: MutablePreferences, config: WidgetConfig, metrics: Map<String, WidgetMetric?>, period: Int?) {
+  fun write(prefs: MutablePreferences, config: WidgetConfig, metrics: Map<String, WidgetMetric?>, period: Int?, theme: ThemeMode?) {
     config.slots.forEach { slot -> prefs[slot.prefKey] = metrics[slot.key]?.name ?: EMPTY }
     if (period != null && config.periods.isNotEmpty()) prefs[PERIOD_KEY] = period
+    if (theme != null) prefs[THEME_KEY] = theme.name else prefs.remove(THEME_KEY)
   }
 
-  /** "Kroky · Patra · Spánek · 7 dní" for the in-app list of placed widgets. */
-  fun summary(prefs: Preferences?, config: WidgetConfig): String =
-    (config.slots.mapNotNull { metric(prefs, it)?.shortLabel } + listOfNotNull(config.periods.takeIf { it.isNotEmpty() }?.let { "${period(prefs, config)} dní" }))
-      .joinToString(" · ")
+  /** "Kroky · Patra · Spánek · 7 dní · tmavý vzhled" for the in-app list of placed widgets. */
+  fun summary(prefs: Preferences?, config: WidgetConfig): String {
+    val parts =
+      config.slots.mapNotNull { metric(prefs, it)?.shortLabel } +
+        listOfNotNull(
+          config.periods.takeIf { it.isNotEmpty() }?.let { "${period(prefs, config)} dní" },
+          theme(prefs)?.let { themeLabel(it) },
+        )
+    return parts.joinToString(" · ").ifEmpty { "Vzhled podle nastavení" }
+  }
+
+  /** "světlý vzhled", "tmavý vzhled", "vzhled podle systému". */
+  fun themeLabel(theme: ThemeMode): String =
+    when (theme) {
+      ThemeMode.SYSTEM -> "vzhled podle systému"
+      ThemeMode.LIGHT -> "světlý vzhled"
+      ThemeMode.DARK -> "tmavý vzhled"
+    }
 }
+
+/** The current widget instance's own theme, or null to follow the app setting. */
+@Composable
+fun chosenTheme(): ThemeMode? = WidgetChoices.theme(LocalState.current as? Preferences)
 
 /** The current widget instance's choice for [slot] (defaults while the picker renders a preview). */
 @Composable
@@ -60,6 +85,9 @@ data class WidgetInfo(
 )
 
 object WidgetCatalog {
+  /** Widgets without values to pick still get their own theme (declared before [all], which uses it). */
+  private val THEME_ONLY = WidgetConfig(emptyList())
+
   val all: List<WidgetInfo> =
     listOf(
       WidgetInfo("Dnešní přehled", "4×2", "Kroužek a čtyři hodnoty dle výběru", TodayWidgetReceiver::class.java, ::TodayWidget, TodayWidget.config),
@@ -71,10 +99,11 @@ object WidgetCatalog {
       WidgetInfo("Kalendář cíle", "4×2", "Posledních 5 týdnů, den po dni", CalendarWidgetReceiver::class.java, ::CalendarWidget, CalendarWidget.config),
       WidgetInfo("Jedna hodnota", "2×1", "Vybraná hodnota velkým písmem", SingleValueWidgetReceiver::class.java, ::SingleValueWidget, SingleValueWidget.config),
       WidgetInfo("Malá hodnota", "1×1", "Vybraná hodnota na nejmenší ploše", MiniValueWidgetReceiver::class.java, ::MiniValueWidget, MiniValueWidget.config),
-      WidgetInfo("Spánek", "4×2", "Délka a fáze poslední noci", SleepWidgetReceiver::class.java, ::SleepWidget),
-      WidgetInfo("Srdce", "2×2", "Klidový tep a trend 7 dní", HeartWidgetReceiver::class.java, ::HeartWidget),
-      WidgetInfo("Tep dnes", "4×2", "Tep po hodinách od půlnoci", HeartDayWidgetReceiver::class.java, ::HeartDayWidget),
-      WidgetInfo("Poslední aktivita", "4×1", "Poslední trénink", LastWorkoutWidgetReceiver::class.java, ::LastWorkoutWidget),
+      // Nothing to pick but the theme.
+      WidgetInfo("Spánek", "4×2", "Délka a fáze poslední noci", SleepWidgetReceiver::class.java, ::SleepWidget, THEME_ONLY),
+      WidgetInfo("Srdce", "2×2", "Klidový tep a trend 7 dní", HeartWidgetReceiver::class.java, ::HeartWidget, THEME_ONLY),
+      WidgetInfo("Tep dnes", "4×2", "Tep po hodinách od půlnoci", HeartDayWidgetReceiver::class.java, ::HeartDayWidget, THEME_ONLY),
+      WidgetInfo("Poslední aktivita", "4×1", "Poslední trénink", LastWorkoutWidgetReceiver::class.java, ::LastWorkoutWidget, THEME_ONLY),
     )
 
   fun byProvider(className: String?): WidgetInfo? = all.firstOrNull { it.receiver.name == className }

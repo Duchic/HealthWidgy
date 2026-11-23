@@ -68,7 +68,7 @@ fun WidgetsCard() {
   SurfaceCard(Modifier.fillMaxWidth()) {
     Text("Widgety na plochu", style = MaterialTheme.typography.titleMedium)
     Text(
-      "Ťukni na Přidat, nebo dlouze podrž prázdné místo na ploše → Widgety → HealthWidgy. Co widget ukazuje, vybereš při přidání a později tady přes Upravit. Widgety se obnovují zhruba jednou za hodinu, při otevření aplikace a ťuknutím na ↻.",
+      "Ťukni na Přidat, nebo dlouze podrž prázdné místo na ploše → Widgety → HealthWidgy. Co widget ukazuje a jestli je světlý, nebo tmavý, vybereš při přidání a později tady přes Upravit. Widgety se obnovují zhruba jednou za hodinu, při otevření aplikace a ťuknutím na ↻.",
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.padding(bottom = 4.dp),

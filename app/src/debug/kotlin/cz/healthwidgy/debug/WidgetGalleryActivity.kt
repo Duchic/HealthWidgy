@@ -36,6 +36,7 @@ import cz.healthwidgy.widget.StepsTrendWidget
 import cz.healthwidgy.widget.StepsWidget
 import cz.healthwidgy.widget.TodayWidget
 import cz.healthwidgy.widget.WidgetData
+import cz.healthwidgy.widget.WidgetChoices
 import cz.healthwidgy.widget.WidgetTheme
 import kotlinx.coroutines.launch
 
@@ -75,6 +76,8 @@ class WidgetGalleryActivity : ComponentActivity() {
       Variant("Úzký Trend 2×2: vzdálenost", StepsTrendWidget(), 187, 218, prefs("metric" to "DISTANCE")),
       Variant("Úzký Kalendář 2×2", CalendarWidget(), 187, 218),
       Variant("Kroužek 2×2", StepsWidget(), 187, 218),
+      Variant("Kroužek 2×2: vlastní vzhled tmavý", StepsWidget(), 187, 218, prefs("theme" to "DARK")),
+      Variant("Kroužek 2×2: vlastní vzhled světlý", StepsWidget(), 187, 218, prefs("theme" to "LIGHT")),
       Variant("Kroužek 2×2: patra", StepsWidget(), 187, 218, prefs("metric" to "FLOORS")),
       Variant("Kroužky cílů 2×2", GoalRingsWidget(), 187, 218),
       Variant("Kroužky cílů 4×2", GoalRingsWidget(), 401, 218),
@@ -172,7 +175,7 @@ class WidgetGalleryActivity : ComponentActivity() {
         val v = Variant(original.name, original.widget, minOf(original.wDp, maxW), original.hDp, original.prefs)
         val rv =
           GlanceRemoteViews().compose(this@WidgetGalleryActivity, DpSize(v.wDp.dp, v.hDp.dp), state = v.prefs) {
-            WidgetTheme(mode) { v.widget.Content(this@WidgetGalleryActivity, snapshot) }
+            WidgetTheme(WidgetChoices.theme(v.prefs) ?: mode) { v.widget.Content(this@WidgetGalleryActivity, snapshot) }
           }.remoteViews
         list.addView(TextView(this@WidgetGalleryActivity).apply {
           text = "${v.name} · ${mode.name}${if (night) " · systém tmavý" else ""}"
@@ -220,7 +223,7 @@ class WidgetGalleryActivity : ComponentActivity() {
           val h = if (tile.rows == 1) 92 else 206
           val rv =
             GlanceRemoteViews().compose(this@WidgetGalleryActivity, DpSize(w.dp, h.dp), state = tile.prefs) {
-              WidgetTheme(mode) { tile.widget.Content(this@WidgetGalleryActivity, snapshot) }
+              WidgetTheme(WidgetChoices.theme(tile.prefs) ?: mode) { tile.widget.Content(this@WidgetGalleryActivity, snapshot) }
             }.remoteViews
           val frame = FrameLayout(this@WidgetGalleryActivity)
           line.addView(frame, LinearLayout.LayoutParams(px(w), px(h)).apply { if (i > 0) leftMargin = px(gap) })

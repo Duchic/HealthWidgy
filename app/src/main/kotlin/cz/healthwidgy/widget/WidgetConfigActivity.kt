@@ -26,6 +26,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -40,24 +41,34 @@ import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
+import cz.healthwidgy.appContainer
+import cz.healthwidgy.data.settings.ThemeMode
 import cz.healthwidgy.ui.theme.HealthWidgyTheme
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * Picks what a configurable widget shows: one metric per slot and, for charts, the period. Opens when a
- * widget is placed, from the launcher's "widget settings" (reconfigurable) and from Settings in the app.
+ * Picks what a widget shows (one metric per slot and, for charts, the period) and its own light or dark
+ * look. Opens when a widget is placed, from the launcher's "widget settings" (reconfigurable) and from
+ * Settings in the app.
  */
 class WidgetConfigActivity : ComponentActivity() {
-  private data class Choices(val metrics: Map<String, WidgetMetric?>, val period: Int) {
-    /** "ring=STEPS;slot3=NONE|7": survives activity recreation in the saved instance state. */
-    fun encode(): String = metrics.entries.joinToString(";") { (k, v) -> "$k=${v?.name ?: WidgetChoices.EMPTY}" } + "|$period"
+  /** [theme] null = follow Settings → Vzhled → Widgety. */
+  private data class Choices(val metrics: Map<String, WidgetMetric?>, val period: Int, val theme: ThemeMode?) {
+    /** "ring=STEPS;slot3=NONE|7|DARK": survives activity recreation in the saved instance state. */
+    fun encode(): String =
+      metrics.entries.joinToString(";") { (k, v) -> "$k=${v?.name ?: WidgetChoices.EMPTY}" } + "|$period|${theme?.name ?: WidgetChoices.EMPTY}"
   }
 
   private fun decode(text: String, config: WidgetConfig): Choices? {
-    val (slots, period) = text.split('|').takeIf { it.size == 2 } ?: return null
+    val (slots, period, theme) = text.split('|').takeIf { it.size == 3 } ?: return null
     val map = slots.split(';').filter { '=' in it }.associate { it.substringBefore('=') to it.substringAfter('=') }
-    return Choices(config.slots.associate { it.key to WidgetMetric.byName(map[it.key]) }, period.toIntOrNull() ?: config.defaultPeriod)
+    return Choices(
+      config.slots.associate { it.key to WidgetMetric.byName(map[it.key]) },
+      period.toIntOrNull() ?: config.defaultPeriod,
+      ThemeMode.entries.firstOrNull { it.name == theme },
+    )
   }
 
   /** The widget may have been removed meanwhile (e.g. while this screen waited in Recents). */
@@ -86,13 +97,15 @@ class WidgetConfigActivity : ComponentActivity() {
             val loaded = runCatching {
               val glanceId = GlanceAppWidgetManager(this@WidgetConfigActivity).getGlanceIdBy(appWidgetId)
               val prefs = getAppWidgetState(this@WidgetConfigActivity, PreferencesGlanceStateDefinition, glanceId)
-              Choices(config.slots.associate { it.key to WidgetChoices.metric(prefs, it) }, WidgetChoices.period(prefs, config))
+              Choices(config.slots.associate { it.key to WidgetChoices.metric(prefs, it) }, WidgetChoices.period(prefs, config), WidgetChoices.theme(prefs))
             }
             loaded.onSuccess { value = it }.onFailure { if (it is CancellationException) throw it else finish() }
           }
+          // What "Podle nastavení" currently means, shown next to the choice.
+          val appWidgetTheme by appContainer.settings.settings.map { it.widgetTheme }.collectAsState(initial = null)
           val current = edited?.let { decode(it, config) } ?: stored
           current?.let { choices ->
-            Form(info, config, choices, onChange = { edited = it.encode() }, onSave = { save(appWidgetId, info, config, it) }, onCancel = ::finish)
+            Form(info, config, choices, appWidgetTheme, onChange = { edited = it.encode() }, onSave = { save(appWidgetId, info, config, it) }, onCancel = ::finish)
           }
         }
       }
@@ -100,10 +113,18 @@ class WidgetConfigActivity : ComponentActivity() {
   }
 
   @Composable
-  private fun Form(info: WidgetInfo, config: WidgetConfig, choices: Choices, onChange: (Choices) -> Unit, onSave: (Choices) -> Unit, onCancel: () -> Unit) {
+  private fun Form(
+    info: WidgetInfo,
+    config: WidgetConfig,
+    choices: Choices,
+    appWidgetTheme: ThemeMode?,
+    onChange: (Choices) -> Unit,
+    onSave: (Choices) -> Unit,
+    onCancel: () -> Unit,
+  ) {
     val dark = isSystemInDarkTheme()
-    // One choice only (Jedna hodnota, Kroužek, Kalendář): a tap saves and closes, no extra button.
-    val single = config.slots.size == 1 && config.periods.isEmpty()
+    // Only the look to choose (Spánek, Srdce, Tep dnes, Poslední aktivita): a tap saves and closes.
+    val single = config.slots.isEmpty() && config.periods.isEmpty()
     Column(
       Modifier.fillMaxSize().safeDrawingPadding().verticalScroll(rememberScrollState()).padding(20.dp),
       verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -111,7 +132,7 @@ class WidgetConfigActivity : ComponentActivity() {
       Column {
         Text(info.name, style = MaterialTheme.typography.headlineSmall)
         Text(
-          if (single) "Ťukni na údaj, který má widget ukazovat." else "Vyber, co má widget ukazovat, a ulož.",
+          if (single) "Ťukni na vzhled widgetu." else "Vyber, co má widget ukazovat, a ulož.",
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -123,10 +144,7 @@ class WidgetConfigActivity : ComponentActivity() {
             slot.options.forEach { metric ->
               FilterChip(
                 selected = choices.metrics[slot.key] == metric,
-                onClick = {
-                  val picked = choices.copy(metrics = choices.metrics + (slot.key to metric))
-                  if (single) onSave(picked) else onChange(picked)
-                },
+                onClick = { onChange(choices.copy(metrics = choices.metrics + (slot.key to metric))) },
                 label = { Text(metric.label) },
                 leadingIcon = {
                   Icon(painterResource(metric.icon), contentDescription = null, tint = Color(if (dark) metric.accent.night else metric.accent.day), modifier = Modifier.size(18.dp))
@@ -153,6 +171,27 @@ class WidgetConfigActivity : ComponentActivity() {
           }
         }
       }
+      Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Vzhled widgetu", style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+          (listOf(null) + ThemeMode.entries).forEach { theme ->
+            FilterChip(
+              selected = choices.theme == theme,
+              onClick = {
+                val picked = choices.copy(theme = theme)
+                if (single) onSave(picked) else onChange(picked)
+              },
+              label = { Text(theme?.label ?: "Podle nastavení") },
+            )
+          }
+        }
+        Text(
+          "Podle nastavení: jako ostatní widgety (Nastavení → Vzhled → Widgety" + (appWidgetTheme?.let { ", teď ${it.label.lowercase()}" } ?: "") + "). " +
+            "Světlý a Tmavý platí jen pro tento widget, ať je telefon ve světlém nebo tmavém režimu.",
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      }
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
         TextButton(onClick = onCancel) { Text("Zrušit") }
         if (!single) Button(onClick = { onSave(choices) }) { Text("Uložit") }
@@ -168,7 +207,7 @@ class WidgetConfigActivity : ComponentActivity() {
         widgetExists(appWidgetId) &&
           try {
             val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(appWidgetId)
-            updateAppWidgetState(context, glanceId) { prefs -> WidgetChoices.write(prefs, config, choices.metrics, choices.period) }
+            updateAppWidgetState(context, glanceId) { prefs -> WidgetChoices.write(prefs, config, choices.metrics, choices.period, choices.theme) }
             // Draw it now, while this screen is still in the foreground (see WidgetUpdater).
             WidgetUpdater.render(context, appWidgetId, info)
             true

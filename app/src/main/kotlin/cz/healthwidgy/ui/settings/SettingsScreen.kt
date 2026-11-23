@@ -89,7 +89,8 @@ fun SettingsScreen(
       }
       ThemeChoice("Widgety", settings.widgetTheme) { scope.launch { settingsRepository.setWidgetTheme(it) } }
       Text(
-        "Systém: světlý a tmavý vzhled se přepíná spolu s telefonem (i podle plánu). Barvy se řídí tapetou.",
+        "Systém: světlý a tmavý vzhled se přepíná spolu s telefonem (i podle plánu). Barvy se řídí tapetou. " +
+          "Jednotlivý widget můžeš přepnout i zvlášť v jeho nastavení (Widgety na plochu → Upravit).",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),

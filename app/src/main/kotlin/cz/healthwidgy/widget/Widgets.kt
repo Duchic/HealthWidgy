@@ -57,7 +57,8 @@ abstract class HealthWidget : GlanceAppWidget() {
     provideContent {
       val tick by WidgetUpdater.tick.collectAsState()
       val snapshot by produceState(initial, tick) { value = WidgetData.load(context) }
-      WidgetTheme(snapshot.theme) { Content(context, snapshot) }
+      // This widget's own theme (its settings screen) wins over Settings → Vzhled → Widgety.
+      WidgetTheme(chosenTheme() ?: snapshot.theme) { Content(context, snapshot) }
     }
   }
 

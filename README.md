@@ -12,7 +12,7 @@ It reads only the data that the Garmin Connect app already shares with **Android
 ![Health Connect](https://img.shields.io/badge/Health%20Connect-read--only-0B57D0)
 
 > [!NOTE]
-> The app's interface is in Czech. All screenshots use **generated demo data**, not a real person's health data (see [Demo build](#demo-build)).
+> The app speaks English and Czech: it follows the phone's language, or you pick one in Settings. The screenshots show the Czech interface with **generated demo data**, not a real person's health data (see [Demo build](#demo-build)).
 
 <table>
   <tr>
@@ -97,6 +97,7 @@ You can choose from 9 metrics: steps, calories, distance, floors, resting heart 
 ### Settings
 - **Daily goals** for steps, distance, floors and sleep. Garmin does not share its goals with Health Connect, so you set them here.
 - **Appearance:** System, Light or Dark, set separately for the app and for the widgets. A single widget can also have its own look.
+- **Language:** System, Čeština or English. It is Android's per-app language, so it also appears in the phone's app settings; the widgets follow it too.
 - **Widgets:** add any widget from inside the app and edit the ones already placed.
 - **Data source:** Garmin Connect only (the default) or all apps in Health Connect.
 - **Permissions:** how many data types are allowed and whether background reading and older data are on, with buttons to ask for what is missing.
@@ -216,7 +217,6 @@ app/src/test/  JVM unit tests
 - **Charts** are drawn with Compose Canvas.
 
 ## Limitations
-- **Czech only:** the UI has no other language yet.
 - **Garmin's data only:** the app shows only what Garmin Connect writes to Health Connect.
 - **Not real time:** widgets refresh about once an hour.
 - **Background permission needed:** without it, widgets refresh only when you open the app.

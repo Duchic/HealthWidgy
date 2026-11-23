@@ -33,6 +33,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import cz.healthwidgy.data.hc.HcAccess
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.AccessViewModel
 import cz.healthwidgy.ui.components.AppIcon
 import androidx.compose.foundation.layout.Column
@@ -107,13 +108,15 @@ fun HealthWidgyRoot(destination: String? = null, onDestinationHandled: () -> Uni
 
 private data class Tab(val key: NavKey, val label: String, val icon: Int)
 
-private val tabs =
-  listOf(
-    Tab(OverviewKey, "Přehled", R.drawable.ic_grid),
-    Tab(TrendsKey, "Trendy", R.drawable.ic_trend),
-    Tab(ActivitiesKey, "Aktivity", R.drawable.ic_run),
-    Tab(SettingsKey, "Nastavení", R.drawable.ic_tune),
-  )
+// A getter, not a stored list: the labels follow the current language.
+private val tabs: List<Tab>
+  get() =
+    listOf(
+      Tab(OverviewKey, tr("Přehled", "Overview"), R.drawable.ic_grid),
+      Tab(TrendsKey, tr("Trendy", "Trends"), R.drawable.ic_trend),
+      Tab(ActivitiesKey, tr("Aktivity", "Activities"), R.drawable.ic_run),
+      Tab(SettingsKey, tr("Nastavení", "Settings"), R.drawable.ic_tune),
+    )
 
 @Composable
 private fun MainNavigation(
@@ -231,7 +234,7 @@ private fun MainNavigation(
           entry<WorkoutKey> { key -> WorkoutDetailScreen(key.id, back, padding) }
           entry<InventoryKey> {
             Column(Modifier.fillMaxSize().padding(padding)) {
-              DetailTopBar("Data v Health Connect", back)
+              DetailTopBar(tr("Data v Health Connect", "Data in Health Connect"), back)
               InventoryScreen(inventoryViewModel, PaddingValues())
             }
           }
@@ -251,9 +254,9 @@ private fun openHealthConnectSettings(context: Context) {
   try {
     context.startActivity(context.appContainer.healthConnect.healthConnectSettingsIntent())
   } catch (e: ActivityNotFoundException) {
-    Toast.makeText(context, "Nastavení Health Connect se nepodařilo otevřít.", Toast.LENGTH_LONG).show()
+    Toast.makeText(context, tr("Nastavení Health Connect se nepodařilo otevřít.", "Could not open Health Connect settings."), Toast.LENGTH_LONG).show()
   } catch (e: SecurityException) {
-    Toast.makeText(context, "Nastavení Health Connect se nepodařilo otevřít.", Toast.LENGTH_LONG).show()
+    Toast.makeText(context, tr("Nastavení Health Connect se nepodařilo otevřít.", "Could not open Health Connect settings."), Toast.LENGTH_LONG).show()
   }
 }
 

@@ -28,6 +28,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.healthwidgy.R
 import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.db.ExerciseSessionEntity
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.AppIcon
 import cz.healthwidgy.ui.components.SurfaceCard
@@ -54,11 +55,14 @@ fun ActivitiesScreen(contentPadding: PaddingValues, onOpenWorkout: (String) -> U
     verticalArrangement = Arrangement.spacedBy(8.dp),
   ) {
     if (workoutsOrNull == null) return@LazyColumn
-    item { Text("Aktivity", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) }
+    item { Text(tr("Aktivity", "Activities"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold) }
     if (workouts.isEmpty()) {
       item {
         Text(
-          "Zatím tu nejsou žádné tréninky. Garmin je do Health Connect zapíše po synchronizaci hodinek.",
+          tr(
+            "Zatím tu nejsou žádné tréninky. Garmin je do Health Connect zapíše po synchronizaci hodinek.",
+            "No workouts yet. Garmin writes them to Health Connect after your watch syncs.",
+          ),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -69,10 +73,12 @@ fun ActivitiesScreen(contentPadding: PaddingValues, onOpenWorkout: (String) -> U
         val minutes = list.sumOf { (it.end - it.start) / 60_000 }
         val km = list.mapNotNull { it.distanceMeters }.sum()
         Column(Modifier.padding(top = 10.dp, bottom = 2.dp)) {
-          Text("Týden ${Format.weekRange(monday, monday.plusDays(6))}", style = MaterialTheme.typography.titleSmall)
+          val range = Format.weekRange(monday, monday.plusDays(6))
+          Text(tr("Týden $range", "Week $range"), style = MaterialTheme.typography.titleSmall)
           Text(
             buildString {
-              append("${list.size} ${Format.plural(list.size.toLong(), "trénink", "tréninky", "tréninků")} · ${Format.duration(minutes)}")
+              val n = list.size.toLong()
+              append("${list.size} ${tr(Format.plural(n, "trénink", "tréninky", "tréninků"), Format.pluralEn(n, "workout", "workouts"))} · ${Format.duration(minutes)}")
               // Older workouts get their distance only when first opened: show a week total only when complete.
               if (km >= 100 && list.all { it.statsComputed }) append(" · ${Format.km(km)} km")
             },
@@ -100,7 +106,7 @@ private fun WorkoutRow(w: ExerciseSessionEntity, onClick: () -> Unit) {
             append(Format.dayAndTime(Instant.ofEpochMilli(w.start)))
             append(" · ").append(Format.clock((w.end - w.start) / 1000))
             w.distanceMeters?.takeIf { it >= 100 }?.let { append(" · ${Format.km(it)} km") }
-            w.avgHeartRate?.let { append(" · Ø $it bpm") }
+            w.avgHeartRate?.let { append(tr(" · Ø $it bpm", " · avg $it bpm")) }
           },
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,

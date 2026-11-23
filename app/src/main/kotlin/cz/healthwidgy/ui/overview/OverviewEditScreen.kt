@@ -37,6 +37,7 @@ import cz.healthwidgy.data.settings.OverviewCard
 import cz.healthwidgy.data.settings.OverviewCardType
 import cz.healthwidgy.data.settings.OverviewLayout
 import cz.healthwidgy.data.settings.SettingsRepository
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.components.AppIcon
 import cz.healthwidgy.ui.components.SurfaceCard
 import cz.healthwidgy.ui.history.DetailTopBar
@@ -57,7 +58,7 @@ fun OverviewEditScreen(settingsRepository: SettingsRepository, onBack: () -> Uni
   fun indexOf(cards: List<OverviewCard>, type: OverviewCardType) = cards.indexOfFirst { it.type == type }
 
   Column(Modifier.fillMaxSize().padding(contentPadding)) {
-    DetailTopBar("Upravit přehled", onBack)
+    DetailTopBar(tr("Upravit přehled", "Edit overview"), onBack)
     val cards = settings?.overviewCards ?: return@Column
     LazyColumn(
       modifier = Modifier.fillMaxSize(),
@@ -66,13 +67,16 @@ fun OverviewEditScreen(settingsRepository: SettingsRepository, onBack: () -> Uni
     ) {
       item {
         Text(
-          "Karty na Přehledu shora dolů. Poloviční karty se skládají po dvou vedle sebe, celé jdou přes celou šířku. Změny se ukládají hned.",
+          tr(
+            "Karty na Přehledu shora dolů. Poloviční karty se skládají po dvou vedle sebe, celé jdou přes celou šířku. Změny se ukládají hned.",
+            "Overview cards from top to bottom. Half-width cards sit two side by side, full-width ones span the whole width. Changes are saved right away.",
+          ),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
       if (cards.isEmpty()) {
-        item { Text("Přehled je prázdný. Přidej kartu níže.", style = MaterialTheme.typography.bodyMedium) }
+        item { Text(tr("Přehled je prázdný. Přidej kartu níže.", "Overview is empty. Add a card below."), style = MaterialTheme.typography.bodyMedium) }
       } else {
         item { LayoutPreview(cards) }
       }
@@ -89,14 +93,14 @@ fun OverviewEditScreen(settingsRepository: SettingsRepository, onBack: () -> Uni
       }
       val missing = OverviewLayout.available(cards)
       if (missing.isNotEmpty()) {
-        item { Text("Přidat kartu", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
+        item { Text(tr("Přidat kartu", "Add a card"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp)) }
         items(missing, key = { "add-${it.name}" }) { type ->
           AddRow(type) { update { cs -> if (cs.any { it.type == type }) cs else cs + OverviewCard(type, type.wideByDefault) } }
         }
       }
       item {
         OutlinedButton(onClick = { update { OverviewLayout.DEFAULT } }, enabled = cards != OverviewLayout.DEFAULT, modifier = Modifier.padding(top = 8.dp)) {
-          Text("Obnovit výchozí rozvržení")
+          Text(tr("Obnovit výchozí rozvržení", "Reset to default layout"))
         }
       }
     }
@@ -109,7 +113,7 @@ private fun LayoutPreview(cards: List<OverviewCard>) {
   val slots = OverviewLayout.slots(cards.map { it.wide })
   val rows = cards.indices.groupBy { slots[it].row }.toSortedMap().values
   SurfaceCard(Modifier.fillMaxWidth(), contentPadding = 12.dp) {
-    Text("Náhled", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(tr("Náhled", "Preview"), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     Spacer(Modifier.height(6.dp))
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
       rows.forEach { indices ->
@@ -155,12 +159,18 @@ private fun CardEditor(
         Text(card.type.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
       // The icon takes the button's content color, so a disabled arrow is greyed out.
-      IconButton(onClick = onUp, enabled = !first) { AppIcon(R.drawable.ic_arrow_up, contentDescription = "Posunout výš", size = 20.dp, tint = LocalContentColor.current) }
-      IconButton(onClick = onDown, enabled = !last) { AppIcon(R.drawable.ic_arrow_down, contentDescription = "Posunout níž", size = 20.dp, tint = LocalContentColor.current) }
-      IconButton(onClick = onRemove) { AppIcon(R.drawable.ic_close, contentDescription = "Odebrat z přehledu", size = 20.dp, tint = LocalContentColor.current) }
+      IconButton(onClick = onUp, enabled = !first) {
+        AppIcon(R.drawable.ic_arrow_up, contentDescription = tr("Posunout výš", "Move up"), size = 20.dp, tint = LocalContentColor.current)
+      }
+      IconButton(onClick = onDown, enabled = !last) {
+        AppIcon(R.drawable.ic_arrow_down, contentDescription = tr("Posunout níž", "Move down"), size = 20.dp, tint = LocalContentColor.current)
+      }
+      IconButton(onClick = onRemove) {
+        AppIcon(R.drawable.ic_close, contentDescription = tr("Odebrat z přehledu", "Remove from overview"), size = 20.dp, tint = LocalContentColor.current)
+      }
     }
     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-      listOf(false to "Poloviční", true to "Celá šířka").forEachIndexed { i, (wide, label) ->
+      listOf(false to tr("Poloviční", "Half width"), true to tr("Celá šířka", "Full width")).forEachIndexed { i, (wide, label) ->
         SegmentedButton(selected = card.wide == wide, onClick = { onWide(wide) }, shape = SegmentedButtonDefaults.itemShape(i, 2)) { Text(label) }
       }
     }
@@ -177,6 +187,6 @@ private fun AddRow(type: OverviewCardType, onAdd: () -> Unit) {
       Text(type.label, style = MaterialTheme.typography.bodyLarge)
       Text(type.description, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    TextButton(onClick = onAdd) { Text("Přidat") }
+    TextButton(onClick = onAdd) { Text(tr("Přidat", "Add")) }
   }
 }

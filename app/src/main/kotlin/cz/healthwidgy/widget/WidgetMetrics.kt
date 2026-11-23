@@ -3,6 +3,7 @@ package cz.healthwidgy.widget
 import cz.healthwidgy.R
 import cz.healthwidgy.data.db.BodyMeasurementEntity
 import cz.healthwidgy.data.sync.Metrics
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -12,16 +13,31 @@ import kotlin.math.roundToLong
  * Values a widget slot can show. The enum names are stored in widget state, so keep them stable
  * (the first seven come from the original "Jedna hodnota" widget).
  */
-enum class WidgetMetric(val label: String, val shortLabel: String, val icon: Int, val accent: Accent) {
-  STEPS("Kroky", "Kroky", R.drawable.ic_walk, Accent.STEPS),
-  CALORIES("Kalorie", "Kalorie", R.drawable.ic_flame, Accent.CALORIES),
-  DISTANCE("Vzdálenost", "Vzdálenost", R.drawable.ic_route, Accent.DISTANCE),
-  FLOORS("Patra", "Patra", R.drawable.ic_stairs, Accent.BODY),
-  RESTING_HR("Klidový tep", "Klidový tep", R.drawable.ic_heart, Accent.HEART),
-  SLEEP("Spánek", "Spánek", R.drawable.ic_moon, Accent.SLEEP),
-  WEIGHT("Váha", "Váha", R.drawable.ic_scale, Accent.BODY),
-  HEART_RATE("Tep (poslední hodina)", "Tep", R.drawable.ic_heart, Accent.HEART),
-  BODY_FAT("Tělesný tuk", "Tuk", R.drawable.ic_scale, Accent.BODY);
+enum class WidgetMetric(
+  private val labelCs: String,
+  private val labelEn: String,
+  private val shortLabelCs: String,
+  private val shortLabelEn: String,
+  val icon: Int,
+  val accent: Accent,
+) {
+  STEPS("Kroky", "Steps", "Kroky", "Steps", R.drawable.ic_walk, Accent.STEPS),
+  CALORIES("Kalorie", "Calories", "Kalorie", "Calories", R.drawable.ic_flame, Accent.CALORIES),
+  DISTANCE("Vzdálenost", "Distance", "Vzdálenost", "Distance", R.drawable.ic_route, Accent.DISTANCE),
+  FLOORS("Patra", "Floors", "Patra", "Floors", R.drawable.ic_stairs, Accent.BODY),
+  RESTING_HR("Klidový tep", "Resting heart rate", "Klidový tep", "Resting HR", R.drawable.ic_heart, Accent.HEART),
+  SLEEP("Spánek", "Sleep", "Spánek", "Sleep", R.drawable.ic_moon, Accent.SLEEP),
+  WEIGHT("Váha", "Weight", "Váha", "Weight", R.drawable.ic_scale, Accent.BODY),
+  HEART_RATE("Tep (poslední hodina)", "Heart rate (last hour)", "Tep", "Heart rate", R.drawable.ic_heart, Accent.HEART),
+  BODY_FAT("Tělesný tuk", "Body fat", "Tuk", "Body fat", R.drawable.ic_scale, Accent.BODY);
+
+  /** Name in pickers, in the current language (read on every use: the language can change at runtime). */
+  val label: String
+    get() = tr(labelCs, labelEn)
+
+  /** Short name on widgets, in the current language. */
+  val shortLabel: String
+    get() = tr(shortLabelCs, shortLabelEn)
 
   /** Day-by-day values are levels (line chart, average) rather than daily totals (bars, sum). */
   val isLevel: Boolean
@@ -68,9 +84,10 @@ fun WidgetSnapshot.goal(metric: WidgetMetric): Double? =
 /** "10 000 kroků", "8 km", "10 pater", "8 h". */
 fun WidgetSnapshot.goalText(metric: WidgetMetric): String =
   when (metric) {
-    WidgetMetric.STEPS -> "${Format.int(goals.steps.toLong())} kroků"
+    WidgetMetric.STEPS -> tr("${Format.int(goals.steps.toLong())} kroků", "${Format.int(goals.steps.toLong())} steps")
     WidgetMetric.DISTANCE -> "${Format.int(goals.distanceMeters / 1000)} km"
-    WidgetMetric.FLOORS -> "${goals.floors} ${Format.plural(goals.floors.toLong(), "patro", "patra", "pater")}"
+    WidgetMetric.FLOORS ->
+      "${goals.floors} ${tr(Format.plural(goals.floors.toLong(), "patro", "patra", "pater"), Format.pluralEn(goals.floors.toLong(), "floor", "floors"))}"
     WidgetMetric.SLEEP -> Format.hours(goals.sleepMinutes)
     else -> ""
   }
@@ -93,8 +110,8 @@ private fun Float.percent(): String = "${(this * 100).roundToInt()} %"
 /** "dnes", "včera", "12. 11." */
 fun relativeDay(date: LocalDate, today: LocalDate): String =
   when (date) {
-    today -> "dnes"
-    today.minusDays(1) -> "včera"
+    today -> tr("dnes", "today")
+    today.minusDays(1) -> tr("včera", "yesterday")
     else -> Format.dayMonth(date)
   }
 
@@ -112,7 +129,10 @@ fun WidgetMetric.unit(value: Double?): String? =
   when (this) {
     WidgetMetric.STEPS -> null
     WidgetMetric.DISTANCE -> "km"
-    WidgetMetric.FLOORS -> Format.plural((value ?: 0.0).roundToLong(), "patro", "patra", "pater")
+    WidgetMetric.FLOORS -> {
+      val n = (value ?: 0.0).roundToLong()
+      tr(Format.plural(n, "patro", "patra", "pater"), Format.pluralEn(n, "floor", "floors"))
+    }
     WidgetMetric.CALORIES -> "kcal"
     WidgetMetric.RESTING_HR, WidgetMetric.HEART_RATE -> "bpm"
     WidgetMetric.SLEEP -> "h"
@@ -134,7 +154,7 @@ fun WidgetMetric.destination(): String =
 fun WidgetSnapshot.read(metric: WidgetMetric): Reading {
   fun withGoal(value: Double): Reading {
     val p = progress(metric) ?: 0f
-    return Reading(metric.format(value), metric.unit(value), "${p.percent()} cíle", p, metric.destination())
+    return Reading(metric.format(value), metric.unit(value), tr("${p.percent()} cíle", "${p.percent()} of goal"), p, metric.destination())
   }
   fun body(m: BodyMeasurementEntity?): Reading =
     Reading(m?.let { metric.format(it.value) } ?: NONE, metric.unit(m?.value), m?.let { relativeDay(LocalDate.parse(it.date), today) }, null, metric.destination())
@@ -154,7 +174,7 @@ fun WidgetSnapshot.read(metric: WidgetMetric): Reading {
           Reading(metric.format(night.asleepMinutes.toDouble()), "h", relativeDay(LocalDate.parse(night.wakeDate), today), 0f, metric.destination())
       }
     }
-    WidgetMetric.CALORIES -> Reading(totalKcal?.let { metric.format(it) } ?: NONE, "kcal", "dnes", null, metric.destination())
+    WidgetMetric.CALORIES -> Reading(totalKcal?.let { metric.format(it) } ?: NONE, "kcal", tr("dnes", "today"), null, metric.destination())
     WidgetMetric.RESTING_HR -> {
       val r = restingHr
       val week = days(Metrics.RESTING_HR, 7).mapNotNull { it.second }
@@ -162,14 +182,20 @@ fun WidgetSnapshot.read(metric: WidgetMetric): Reading {
         when {
           r == null -> null
           r.first != today -> relativeDay(r.first, today)
-          week.size > 1 -> "Ø týden ${Format.int(week.average())}"
-          else -> "dnes"
+          week.size > 1 -> tr("Ø týden ${Format.int(week.average())}", "week avg ${Format.int(week.average())}")
+          else -> tr("dnes", "today")
         }
       Reading(r?.let { metric.format(it.second) } ?: NONE, "bpm", note, null, metric.destination())
     }
     WidgetMetric.HEART_RATE -> {
       val h = lastHourHr
-      Reading(h?.let { metric.format(it.second) } ?: NONE, "bpm", h?.let { "Ø od ${Format.time(it.first)}" }, null, metric.destination())
+      Reading(
+        h?.let { metric.format(it.second) } ?: NONE,
+        "bpm",
+        h?.let { tr("Ø od ${Format.time(it.first)}", "avg since ${Format.time(it.first)}") },
+        null,
+        metric.destination(),
+      )
     }
     WidgetMetric.WEIGHT -> body(weight)
     WidgetMetric.BODY_FAT -> body(bodyFat)
@@ -184,7 +210,7 @@ fun WidgetSnapshot.readForGoal(metric: WidgetMetric): Reading {
   val r = read(metric)
   val night = sleep
   if (metric != WidgetMetric.SLEEP || sleepIsLastNight || night == null) return r
-  return Reading(NONE, null, "naposledy ${r.note} ${r.value} h", 0f, r.destination)
+  return Reading(NONE, null, tr("naposledy ${r.note} ${r.value} h", "last: ${r.note}, ${r.value} h"), 0f, r.destination)
 }
 
 /** Day the current value of [metric] comes from: today for daily totals, older for measurements and nights. */
@@ -205,10 +231,13 @@ fun WidgetSnapshot.compactCaption(metric: WidgetMetric, r: Reading): String {
   if (r.value == NO_VALUE) return metric.shortLabel
   val caption =
     when (metric) {
-      WidgetMetric.STEPS -> Format.plural((steps ?: 0.0).roundToLong(), "krok", "kroky", "kroků")
-      WidgetMetric.RESTING_HR -> "bpm v klidu"
-      WidgetMetric.SLEEP -> "h spánku"
-      WidgetMetric.BODY_FAT -> "% tuku"
+      WidgetMetric.STEPS -> {
+        val n = (steps ?: 0.0).roundToLong()
+        tr(Format.plural(n, "krok", "kroky", "kroků"), Format.pluralEn(n, "step", "steps"))
+      }
+      WidgetMetric.RESTING_HR -> tr("bpm v klidu", "bpm at rest")
+      WidgetMetric.SLEEP -> tr("h spánku", "h of sleep")
+      WidgetMetric.BODY_FAT -> tr("% tuku", "% body fat")
       else -> r.unit ?: metric.shortLabel
     }
   val day = valueDay(metric)?.takeIf { it != today } ?: return caption

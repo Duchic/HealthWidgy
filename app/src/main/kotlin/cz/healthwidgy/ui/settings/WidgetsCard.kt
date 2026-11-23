@@ -30,6 +30,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.components.SurfaceCard
 import cz.healthwidgy.widget.WidgetCatalog
 import cz.healthwidgy.widget.WidgetChoices
@@ -66,25 +67,28 @@ fun WidgetsCard() {
   val placed by produceState(emptyList<PlacedWidget>(), refresh) { value = runCatching { placedWidgets(context) }.getOrDefault(emptyList()) }
 
   SurfaceCard(Modifier.fillMaxWidth()) {
-    Text("Widgety na plochu", style = MaterialTheme.typography.titleMedium)
+    Text(tr("Widgety na plochu", "Home screen widgets"), style = MaterialTheme.typography.titleMedium)
     Text(
-      "Ťukni na Přidat, nebo dlouze podrž prázdné místo na ploše → Widgety → HealthWidgy. Co widget ukazuje a jestli je světlý, nebo tmavý, vybereš při přidání a později tady přes Upravit. Widgety se obnovují zhruba jednou za hodinu, při otevření aplikace a ťuknutím na ↻.",
+      tr(
+        "Ťukni na Přidat, nebo dlouze podrž prázdné místo na ploše → Widgety → HealthWidgy. Co widget ukazuje a jestli je světlý, nebo tmavý, vybereš při přidání a později tady přes Upravit. Widgety se obnovují zhruba jednou za hodinu, při otevření aplikace a ťuknutím na ↻.",
+        "Tap Add, or long-press an empty spot on the home screen → Widgets → HealthWidgy. You pick what a widget shows and whether it is light or dark when you add it, and later here via Edit. Widgets refresh about once an hour, when you open the app and when you tap ↻.",
+      ),
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.padding(bottom = 4.dp),
     )
     if (placed.isNotEmpty()) {
-      Text("Na ploše", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
+      Text(tr("Na ploše", "On home screen"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
       placed.forEach { p ->
-        WidgetRow(p.info.name, p.summary, "Upravit") {
+        WidgetRow(p.info.name, p.summary, tr("Upravit", "Edit")) {
           context.startActivity(
             Intent(context, WidgetConfigActivity::class.java).putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, p.appWidgetId)
           )
         }
       }
-      Text("Přidat další", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+      Text(tr("Přidat další", "Add more"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
     }
-    WidgetCatalog.all.forEach { info -> WidgetRow("${info.name} · ${info.size}", info.description, "Přidat") { pin(context, info) } }
+    WidgetCatalog.all.forEach { info -> WidgetRow("${info.name} · ${info.size}", info.description, tr("Přidat", "Add")) { pin(context, info) } }
   }
 }
 
@@ -102,7 +106,12 @@ private fun WidgetRow(title: String, text: String, action: String, onClick: () -
 private fun pin(context: Context, info: WidgetInfo) {
   val manager = context.getSystemService(AppWidgetManager::class.java)
   if (manager?.isRequestPinAppWidgetSupported != true) {
-    Toast.makeText(context, "Tento launcher přidání z aplikace nepodporuje. Přidej widget z plochy.", Toast.LENGTH_LONG).show()
+    Toast.makeText(
+        context,
+        tr("Tento launcher přidání z aplikace nepodporuje. Přidej widget z plochy.", "This launcher does not support adding widgets from apps. Add the widget from the home screen."),
+        Toast.LENGTH_LONG,
+      )
+      .show()
     return
   }
   // The launcher does not open the configuration screen for widgets pinned from an app: the callback

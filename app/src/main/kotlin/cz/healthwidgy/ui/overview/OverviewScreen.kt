@@ -103,8 +103,8 @@ fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues, 
       overview == null ->
         Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Data se nepodařilo načíst: ${state.error}", style = MaterialTheme.typography.bodyLarge)
-            TextButton(onClick = { viewModel.refresh(force = true) }) { Text("Zkusit znovu") }
+            Text(tr("Data se nepodařilo načíst: ${state.error}", "Couldn't load data: ${state.error}"), style = MaterialTheme.typography.bodyLarge)
+            TextButton(onClick = { viewModel.refresh(force = true) }) { Text(tr("Zkusit znovu", "Try again")) }
           }
         }
       else -> OverviewContent(overview, state.error, actions, settings, onRefresh = { viewModel.refresh(force = true) })
@@ -147,22 +147,27 @@ private fun Header(overview: Overview, onRefresh: () -> Unit, onEdit: () -> Unit
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       Column(Modifier.weight(1f)) {
         Text(Format.longDate(overview.date), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Dnes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+        Text(tr("Dnes", "Today"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
       }
       Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        IconButton(onClick = onEdit) { AppIcon(R.drawable.ic_tune, contentDescription = "Upravit přehled", size = 20.dp, tint = MaterialTheme.colorScheme.onSurface) }
+        IconButton(onClick = onEdit) {
+          AppIcon(R.drawable.ic_tune, contentDescription = tr("Upravit přehled", "Edit overview"), size = 20.dp, tint = MaterialTheme.colorScheme.onSurface)
+        }
       }
       Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        IconButton(onClick = onRefresh) { AppIcon(R.drawable.ic_sync, contentDescription = "Obnovit", size = 20.dp, tint = MaterialTheme.colorScheme.onSurface) }
+        IconButton(onClick = onRefresh) {
+          AppIcon(R.drawable.ic_sync, contentDescription = tr("Obnovit", "Refresh"), size = 20.dp, tint = MaterialTheme.colorScheme.onSurface)
+        }
       }
     }
-    val source = if (overview.sourceMode == SourceMode.GARMIN_ONLY) "Data z Garminu" else "Data ze všech zdrojů"
-    val written = overview.latestSourceWrite?.let { " ${Format.dayAndTime(it).replaceFirstChar { c -> c.lowercase() }}" } ?: ""
+    val source =
+      if (overview.sourceMode == SourceMode.GARMIN_ONLY) tr("Data z Garminu", "Data from Garmin") else tr("Data ze všech zdrojů", "Data from all sources")
+    val written = overview.latestSourceWrite?.let { " ${midSentence(Format.dayAndTime(it))}" } ?: ""
     Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
       Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         Box(Modifier.size(6.dp).background(LocalMetricColors.current.steps, CircleShape))
         Text(
-          "$source$written · obnoveno ${Format.time(overview.refreshedAt)}",
+          tr("$source$written · obnoveno ${Format.time(overview.refreshedAt)}", "$source$written · refreshed ${Format.time(overview.refreshedAt)}"),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onPrimaryContainer,
         )
@@ -170,6 +175,22 @@ private fun Header(overview: Overview, onRefresh: () -> Unit, onEdit: () -> Unit
     }
   }
 }
+
+/**
+ * A [Format.dayAndTime] text (or its day part) inside a sentence: "dnes 7:05" / "today 7:05". Weekdays
+ * keep their case ("po 3. 11.", "Mon Nov 3").
+ */
+private fun midSentence(dayAndTime: String): String =
+  tr(
+    dayAndTime.replaceFirstChar { it.lowercase() },
+    if (dayAndTime.startsWith("Today") || dayAndTime.startsWith("Yesterday")) dayAndTime.replaceFirstChar { it.lowercase() } else dayAndTime,
+  )
+
+/** "patro / patra / pater" or "floor / floors" for [n]. */
+private fun floorsWord(n: Long): String = tr(Format.plural(n, "patro", "patra", "pater"), Format.pluralEn(n, "floor", "floors"))
+
+/** "z 10 000 kroků" / "of 10,000 steps". */
+private fun ofStepGoal(goal: Int): String = tr("z ${Format.int(goal.toLong())} kroků", "of ${Format.int(goal.toLong())} steps")
 
 @Composable
 private fun HeroCard(overview: Overview, onClick: () -> Unit) {
@@ -184,14 +205,14 @@ private fun HeroCard(overview: Overview, onClick: () -> Unit) {
       ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
           Text(if (overview.stepsUnknown) "–" else Format.int(steps), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-          Text("z ${Format.int(overview.stepGoal.toLong())} kroků", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          Text(ofStepGoal(overview.stepGoal), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
       Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         overview.distanceMeters?.let { HeroStat(R.drawable.ic_route, colors.distance, Format.km(it), "km") }
         overview.floors?.let {
           val n = it.roundToLong()
-          HeroStat(R.drawable.ic_stairs, colors.body, Format.int(n), Format.plural(n, "patro", "patra", "pater"))
+          HeroStat(R.drawable.ic_stairs, colors.body, Format.int(n), floorsWord(n))
         }
         overview.totalKcal?.let { HeroStat(R.drawable.ic_flame, colors.calories, Format.int(it), "kcal") }
       }
@@ -210,6 +231,9 @@ private fun HeroStat(icon: Int, color: Color, value: String, unit: String) {
 
 /** One card of the layout: its size and content. */
 private class FlowCard(val wide: Boolean, val content: @Composable () -> Unit)
+
+/** Shown instead of today's value before it exists (e.g. before the watch's first sync of the day). */
+private const val NO_DATA = "–"
 
 /**
  * The cards in the user's order ([OverviewLayout.slots]): wide ones across the width, half ones two per
@@ -272,9 +296,11 @@ private fun OverviewCardContent(card: OverviewCard, overview: Overview, settings
       }
     OverviewCardType.CALORIES -> {
       val open = { actions.openMetric(MetricDefs.TotalKcal.id) }
+      val today = overview.totalKcal != null || overview.activeKcal != null
+      // Before the first sync of the day a wide card still has the week to show.
       when {
-        overview.totalKcal == null && overview.activeKcal == null -> EmptyTile(card.type, open)
-        card.wide -> CaloriesWideCard(overview, open)
+        card.wide && (today || overview.calories7Days.any { it.value != null }) -> CaloriesWideCard(overview, open)
+        !today -> EmptyTile(card.type, open)
         else -> CaloriesTile(overview, open)
       }
     }
@@ -287,24 +313,29 @@ private fun OverviewCardContent(card: OverviewCard, overview: Overview, settings
     OverviewCardType.DISTANCE -> {
       val open = { actions.openMetric(MetricDefs.Distance.id) }
       val goalKm = settings?.distanceGoalKm ?: Settings.DEFAULT_DISTANCE_GOAL_KM
-      overview.distanceMeters?.let {
-        // Wide: the last 7 days in metres, like the goal line.
-        val week = if (card.wide) WeekChart(overview.distance7Days, goalKm * 1000.0) { m -> "${Format.km(m)} km" } else null
-        GoalTile(card.type, Format.km(it), "km", it / 1000 / goalKm, "cíl $goalKm km", open, week, overview.date)
-      } ?: EmptyTile(card.type, open)
+      val meters = overview.distanceMeters
+      // Wide: the last 7 days in metres, like the goal line; shown even before today's first sync.
+      val week = if (card.wide) WeekChart(overview.distance7Days, goalKm * 1000.0) { m -> "${Format.km(m)} km" } else null
+      if (meters == null && week?.days?.any { it.value != null } != true) EmptyTile(card.type, open)
+      else GoalTile(card.type, meters?.let { Format.km(it) } ?: NO_DATA, "km", (meters ?: 0.0) / 1000 / goalKm, tr("cíl $goalKm km", "goal $goalKm km"), open, week, overview.date)
     }
     OverviewCardType.FLOORS -> {
       val open = { actions.openMetric(MetricDefs.Floors.id) }
       val goal = settings?.floorsGoal ?: Settings.DEFAULT_FLOORS_GOAL
-      overview.floors?.let {
-        val n = it.roundToLong()
-        val week = if (card.wide) WeekChart(overview.floors7Days, goal.toDouble()) { v -> Format.int(v) } else null
-        GoalTile(card.type, Format.int(n), Format.plural(n, "patro", "patra", "pater"), it / goal, "cíl $goal ${Format.plural(goal.toLong(), "patro", "patra", "pater")}", open, week, overview.date)
-      } ?: EmptyTile(card.type, open)
+      val floors = overview.floors
+      val week = if (card.wide) WeekChart(overview.floors7Days, goal.toDouble()) { v -> Format.int(v) } else null
+      if (floors == null && week?.days?.any { it.value != null } != true) EmptyTile(card.type, open)
+      else {
+        val n = (floors ?: 0.0).roundToLong()
+        GoalTile(
+          card.type, floors?.let { Format.int(n) } ?: NO_DATA, floorsWord(n), (floors ?: 0.0) / goal,
+          tr("cíl $goal ${floorsWord(goal.toLong())}", "goal $goal ${floorsWord(goal.toLong())}"), open, week, overview.date,
+        )
+      }
     }
     OverviewCardType.WORKOUT -> {
       val w = overview.workout
-      if (w == null) EmptyTile(card.type, null, "Žádný trénink za posledních 30 dní")
+      if (w == null) EmptyTile(card.type, null, tr("Žádný trénink za posledních 30 dní", "No workout in the last 30 days"))
       else if (card.wide) WorkoutCard(overview) { actions.openWorkout(w.id) }
       else WorkoutTile(overview) { actions.openWorkout(w.id) }
     }
@@ -343,7 +374,7 @@ fun OverviewCardType.iconAndColor(): Pair<Int, Color> {
 
 /** A card the user put on the layout but nothing to show yet (e.g. no weighing in 90 days). */
 @Composable
-private fun EmptyTile(type: OverviewCardType, onClick: (() -> Unit)?, text: String = "Zatím bez dat") {
+private fun EmptyTile(type: OverviewCardType, onClick: (() -> Unit)?, text: String = tr("Zatím bez dat", "No data yet")) {
   val (icon, color) = type.iconAndColor()
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
     TileHeader(icon, type.label, color)
@@ -357,13 +388,13 @@ private fun EmptyTile(type: OverviewCardType, onClick: (() -> Unit)?, text: Stri
 @Composable
 private fun EmptyLayoutCard(onEdit: () -> Unit) {
   SurfaceCard(Modifier.fillMaxWidth()) {
-    Text("Přehled je prázdný", style = MaterialTheme.typography.titleMedium)
+    Text(tr("Přehled je prázdný", "Overview is empty"), style = MaterialTheme.typography.titleMedium)
     Text(
-      "Všechny karty jsou skryté. Vyber, co tu chceš vidět.",
+      tr("Všechny karty jsou skryté. Vyber, co tu chceš vidět.", "All cards are hidden. Choose what you want to see here."),
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    TextButton(onClick = onEdit, contentPadding = PaddingValues(0.dp)) { Text("Upravit přehled") }
+    TextButton(onClick = onEdit, contentPadding = PaddingValues(0.dp)) { Text(tr("Upravit přehled", "Edit overview")) }
   }
 }
 
@@ -373,7 +404,7 @@ private fun StepsTile(overview: Overview, onClick: () -> Unit) {
   val colors = LocalMetricColors.current
   val steps = overview.steps ?: 0L
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
-    TileHeader(R.drawable.ic_walk, "Kroky", colors.steps)
+    TileHeader(R.drawable.ic_walk, tr("Kroky", "Steps"), colors.steps)
     // About as tall as the Tep card, its usual neighbour.
     Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
       ProgressRing(
@@ -385,7 +416,7 @@ private fun StepsTile(overview: Overview, onClick: () -> Unit) {
         Text(if (overview.stepsUnknown) "–" else Format.int(steps), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
       }
     }
-    TileSub("z ${Format.int(overview.stepGoal.toLong())} kroků")
+    TileSub(ofStepGoal(overview.stepGoal))
   }
 }
 
@@ -399,9 +430,10 @@ private fun WeekBars(week: WeekChart, today: LocalDate, color: Color) {
   // Average of finished days only: today is still in progress.
   val finished = week.days.filter { it.date != today }.mapNotNull { it.value }
   Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-    Text("Posledních 7 dní", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(tr("Posledních 7 dní", "Last 7 days"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     if (finished.isNotEmpty()) {
-      Text("Ø ${week.format(finished.average())} / den", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      val average = week.format(finished.average())
+      Text(tr("Ø $average / den", "Avg $average / day"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
   }
   DayBars(
@@ -444,17 +476,17 @@ private fun HeartWideCard(overview: Overview, onClick: () -> Unit) {
   val heart = overview.heart
   val resting = overview.restingHeartRate
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
-    TileHeader(R.drawable.ic_heart, if (heart?.latestBpm != null) "Tep" else "Klidový tep", color)
+    TileHeader(R.drawable.ic_heart, if (heart?.latestBpm != null) tr("Tep", "Heart rate") else tr("Klidový tep", "Resting heart rate"), color)
     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
       (heart?.latestBpm ?: resting?.bpm)?.let { TileValue(it.toString(), "bpm") }
       Column(Modifier.padding(bottom = 4.dp)) {
         val today =
           listOfNotNull(
             heart?.latestTime?.let { Format.time(it) },
-            if (heart?.minBpm != null && heart.maxBpm != null) "dnes ${heart.minBpm}–${heart.maxBpm}" else null,
+            if (heart?.minBpm != null && heart.maxBpm != null) tr("dnes ${heart.minBpm}–${heart.maxBpm}", "today ${heart.minBpm}–${heart.maxBpm}") else null,
           ).joinToString(" · ")
         if (today.isNotEmpty()) TileSub(today)
-        resting?.let { TileSub("klidový ${it.bpm}${if (it.isEstimate) " (odhad)" else ""}") }
+        resting?.let { TileSub(restingText(it.bpm, it.isEstimate)) }
       }
     }
     if (overview.heartHours.size > 1) {
@@ -504,23 +536,24 @@ private fun SleepWideCard(overview: Overview, onClick: () -> Unit) {
       modifier = Modifier.padding(top = 8.dp),
       height = 88.dp,
     )
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-      StageStat("Hluboký", stages.deepMinutes, colors.stageDeep)
-      StageStat("Lehký", stages.lightMinutes + stages.unspecifiedMinutes, colors.stageLight)
-      StageStat("REM", stages.remMinutes, colors.stageRem)
-      StageStat("Bdění", stages.awakeMinutes, colors.stageAwake)
+    // Four equal columns: with a larger font the texts are shortened instead of pushing the last one out.
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+      StageStat("Hluboký", stages.deepMinutes, colors.stageDeep, Modifier.weight(1f))
+      StageStat("Lehký", stages.lightMinutes + stages.unspecifiedMinutes, colors.stageLight, Modifier.weight(1f))
+      StageStat("REM", stages.remMinutes, colors.stageRem, Modifier.weight(1f))
+      StageStat("Bdění", stages.awakeMinutes, colors.stageAwake, Modifier.weight(1f))
     }
   }
 }
 
 @Composable
-private fun StageStat(label: String, minutes: Long, color: Color) {
-  Column {
+private fun StageStat(label: String, minutes: Long, color: Color, modifier: Modifier) {
+  Column(modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
       Box(Modifier.size(8.dp).background(color, CircleShape))
-      Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
-    Text(Format.duration(minutes), style = MaterialTheme.typography.labelLarge)
+    Text(Format.duration(minutes), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
   }
 }
 
@@ -533,7 +566,8 @@ private fun CaloriesWideCard(overview: Overview, onClick: () -> Unit) {
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
     TileHeader(R.drawable.ic_flame, "Kalorie", colors.calories)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-      Box(Modifier.weight(1f)) { TileValue(Format.int(total ?: active ?: 0.0), "kcal") }
+      // Before the first sync of the day only the week is known.
+      Box(Modifier.weight(1f)) { TileValue((total ?: active)?.let { Format.int(it) } ?: NO_DATA, "kcal") }
       if (total != null && active != null) TileSub("z toho ${Format.int(active)} při tréninku") else if (total == null) TileSub("při tréninku")
     }
     if (total != null && active != null && total > 0) {
@@ -631,20 +665,21 @@ private fun HeartTile(overview: Overview, onClick: () -> Unit) {
   val heart = overview.heart
   val resting = overview.restingHeartRate
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
-    TileHeader(R.drawable.ic_heart, if (heart?.latestBpm != null) "Tep" else "Klidový tep", color)
+    // A half card is narrow: "Resting HR" in English.
+    TileHeader(R.drawable.ic_heart, if (heart?.latestBpm != null) tr("Tep", "Heart rate") else tr("Klidový tep", "Resting HR"), color)
     if (heart?.latestBpm != null) {
       TileValue(heart.latestBpm.toString(), "bpm")
       TileSub(
         buildString {
           heart.latestTime?.let { append("${Format.time(it)} · ") }
-          if (heart.minBpm != null && heart.maxBpm != null) append("dnes ${heart.minBpm}–${heart.maxBpm}")
+          if (heart.minBpm != null && heart.maxBpm != null) append(tr("dnes ${heart.minBpm}–${heart.maxBpm}", "today ${heart.minBpm}–${heart.maxBpm}"))
         }
       )
     } else if (resting != null) {
       TileValue(resting.bpm.toString(), "bpm")
     }
     if (resting != null) {
-      TileSub("klidový ${resting.bpm}${if (resting.isEstimate) " (odhad)" else ""}")
+      TileSub(restingText(resting.bpm, resting.isEstimate))
       if (resting.last7Days.count { it.value != null } > 1) {
         Sparkline(resting.last7Days.map { it.value }, color, Modifier.fillMaxWidth().height(22.dp).padding(top = 4.dp))
       }
@@ -664,8 +699,9 @@ private fun SleepTile(overview: Overview, onClick: () -> Unit) {
       SegmentBar(
         listOf(
           stages.deepMinutes.toFloat() to colors.stageDeep,
-          stages.lightMinutes.toFloat() to colors.stageLight,
-          (stages.remMinutes + stages.unspecifiedMinutes).toFloat() to colors.stageRem,
+          // Sleep without a phase counts as light, as on the wide card and the Spánek screen.
+          (stages.lightMinutes + stages.unspecifiedMinutes).toFloat() to colors.stageLight,
+          stages.remMinutes.toFloat() to colors.stageRem,
           stages.awakeMinutes.toFloat() to colors.stageAwake,
         ),
         Modifier.padding(vertical = 6.dp),

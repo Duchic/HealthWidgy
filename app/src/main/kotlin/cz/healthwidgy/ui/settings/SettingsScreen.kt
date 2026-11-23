@@ -34,6 +34,7 @@ import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SettingsRepository
 import cz.healthwidgy.data.settings.SourceMode
 import cz.healthwidgy.data.settings.ThemeMode
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.SurfaceCard
 import cz.healthwidgy.ui.theme.applyAppTheme
@@ -61,16 +62,19 @@ fun SettingsScreen(
     Modifier.fillMaxSize().padding(contentPadding).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
-    Text("Nastavení", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+    Text(tr("Nastavení", "Settings"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
 
     SurfaceCard(Modifier.fillMaxWidth()) {
-      Text("Denní cíle", style = MaterialTheme.typography.titleMedium)
-      GoalChips("Kroky", Settings.STEP_GOAL_OPTIONS, settings.stepGoal, { Format.int(it.toLong()) }) { scope.launch { settingsRepository.setStepGoal(it) } }
-      GoalChips("Vzdálenost", Settings.DISTANCE_GOAL_OPTIONS, settings.distanceGoalKm, { "$it km" }) { scope.launch { settingsRepository.setDistanceGoalKm(it) } }
-      GoalChips("Patra", Settings.FLOORS_GOAL_OPTIONS, settings.floorsGoal, { it.toString() }) { scope.launch { settingsRepository.setFloorsGoal(it) } }
-      GoalChips("Spánek", Settings.SLEEP_GOAL_OPTIONS, settings.sleepGoalMinutes, { Format.hours(it) }) { scope.launch { settingsRepository.setSleepGoalMinutes(it) } }
+      Text(tr("Denní cíle", "Daily goals"), style = MaterialTheme.typography.titleMedium)
+      GoalChips(tr("Kroky", "Steps"), Settings.STEP_GOAL_OPTIONS, settings.stepGoal, { Format.int(it.toLong()) }) { scope.launch { settingsRepository.setStepGoal(it) } }
+      GoalChips(tr("Vzdálenost", "Distance"), Settings.DISTANCE_GOAL_OPTIONS, settings.distanceGoalKm, { "$it km" }) { scope.launch { settingsRepository.setDistanceGoalKm(it) } }
+      GoalChips(tr("Patra", "Floors"), Settings.FLOORS_GOAL_OPTIONS, settings.floorsGoal, { it.toString() }) { scope.launch { settingsRepository.setFloorsGoal(it) } }
+      GoalChips(tr("Spánek", "Sleep"), Settings.SLEEP_GOAL_OPTIONS, settings.sleepGoalMinutes, { Format.hours(it) }) { scope.launch { settingsRepository.setSleepGoalMinutes(it) } }
       Text(
-        "Cíle z Garminu se do Health Connect nepřenášejí, proto je nastav tady. Platí pro grafy i widgety.",
+        tr(
+          "Cíle z Garminu se do Health Connect nepřenášejí, proto je nastav tady. Platí pro grafy i widgety.",
+          "Garmin goals are not passed on to Health Connect, so set them here. They apply to charts and widgets.",
+        ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -79,18 +83,22 @@ fun SettingsScreen(
 
     SurfaceCard(Modifier.fillMaxWidth()) {
       val context = LocalContext.current
-      Text("Vzhled", style = MaterialTheme.typography.titleMedium)
-      ThemeChoice("Aplikace", settings.appTheme) { mode ->
+      Text(tr("Vzhled", "Appearance"), style = MaterialTheme.typography.titleMedium)
+      ThemeChoice(tr("Aplikace", "App"), settings.appTheme) { mode ->
         // Apply after the choice is stored: switching recreates this screen.
         scope.launch {
           settingsRepository.setAppTheme(mode)
           applyAppTheme(context, mode)
         }
       }
-      ThemeChoice("Widgety", settings.widgetTheme) { scope.launch { settingsRepository.setWidgetTheme(it) } }
+      ThemeChoice(tr("Widgety", "Widgets"), settings.widgetTheme) { scope.launch { settingsRepository.setWidgetTheme(it) } }
       Text(
-        "Systém: světlý a tmavý vzhled se přepíná spolu s telefonem (i podle plánu). Barvy se řídí tapetou. " +
-          "Jednotlivý widget můžeš přepnout i zvlášť v jeho nastavení (Widgety na plochu → Upravit).",
+        tr(
+          "Systém: světlý a tmavý vzhled se přepíná spolu s telefonem (i podle plánu). Barvy se řídí tapetou. " +
+            "Jednotlivý widget můžeš přepnout i zvlášť v jeho nastavení (Widgety na plochu → Upravit).",
+          "System: light and dark switch together with the phone (also on a schedule). Colors follow the wallpaper. " +
+            "You can also switch a single widget in its own settings (Home screen widgets → Edit).",
+        ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 4.dp),
@@ -100,40 +108,50 @@ fun SettingsScreen(
     WidgetsCard()
 
     SurfaceCard(Modifier.fillMaxWidth()) {
-      Text("Zdroj dat", style = MaterialTheme.typography.titleMedium)
+      Text(tr("Zdroj dat", "Data source"), style = MaterialTheme.typography.titleMedium)
       SourceOption(
         selected = settings.sourceMode == SourceMode.GARMIN_ONLY,
-        title = "Jen Garmin Connect",
-        text = "Doporučeno. Kroky, vzdálenost, kalorie, tep, spánek a tréninky jen z Garminu, bez krokoměru telefonu. Váhu a tělesný tuk aplikace bere z kterékoli aplikace (např. chytré váhy).",
+        title = tr("Jen Garmin Connect", "Garmin Connect only"),
+        text =
+          tr(
+            "Doporučeno. Kroky, vzdálenost, kalorie, tep, spánek a tréninky jen z Garminu, bez krokoměru telefonu. Váhu a tělesný tuk aplikace bere z kterékoli aplikace (např. chytré váhy).",
+            "Recommended. Steps, distance, calories, heart rate, sleep and workouts from Garmin only, without the phone's step counter. Weight and body fat come from any app (e.g. a smart scale).",
+          ),
         onSelect = { scope.launch { settingsRepository.setSourceMode(SourceMode.GARMIN_ONLY) } },
       )
       SourceOption(
         selected = settings.sourceMode == SourceMode.ALL_SOURCES,
-        title = "Všechny zdroje",
-        text = "Vše z Health Connect. Součty kroků a kalorií Health Connect slučuje podle priority aplikací.",
+        title = tr("Všechny zdroje", "All sources"),
+        text =
+          tr(
+            "Vše z Health Connect. Součty kroků a kalorií Health Connect slučuje podle priority aplikací.",
+            "Everything in Health Connect. Health Connect merges step and calorie totals by app priority.",
+          ),
         onSelect = { scope.launch { settingsRepository.setSourceMode(SourceMode.ALL_SOURCES) } },
       )
     }
 
     SurfaceCard(Modifier.fillMaxWidth()) {
-      Text("Oprávnění", style = MaterialTheme.typography.titleMedium)
+      Text(tr("Oprávnění", "Permissions"), style = MaterialTheme.typography.titleMedium)
       Text(
         buildString {
-          append("Typy dat: ${access.grantedDataPermissions} z ${HcTypes.dataPermissions.size}\n")
-          append("Čtení na pozadí: ")
+          val granted = access.grantedDataPermissions
+          val total = HcTypes.dataPermissions.size
+          append(tr("Typy dat: $granted z $total\n", "Data types: $granted of $total\n"))
+          append(tr("Čtení na pozadí: ", "Background reading: "))
           append(
             when {
-              !access.backgroundFeatureAvailable -> "telefon nepodporuje"
-              access.hasBackground -> "povoleno"
-              else -> "nepovoleno"
+              !access.backgroundFeatureAvailable -> tr("telefon nepodporuje", "not supported by the phone")
+              access.hasBackground -> tr("povoleno", "allowed")
+              else -> tr("nepovoleno", "not allowed")
             }
           )
-          append("\nData starší než 30 dní před prvním povolením: ")
+          append(tr("\nData starší než 30 dní před prvním povolením: ", "\nData older than 30 days before the first grant: "))
           append(
             when {
-              !access.historyFeatureAvailable -> "telefon nepodporuje"
-              access.hasHistory -> "povoleno"
-              else -> "nepovoleno"
+              !access.historyFeatureAvailable -> tr("telefon nepodporuje", "not supported by the phone")
+              access.hasHistory -> tr("povoleno", "allowed")
+              else -> tr("nepovoleno", "not allowed")
             }
           )
         },
@@ -143,18 +161,21 @@ fun SettingsScreen(
       // Separate requests: a permission denied twice blocks the whole dialog for any request that contains it.
       val missingData = access.missingPermissions.intersect(HcTypes.dataPermissions)
       FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 6.dp)) {
-        if (missingData.isNotEmpty()) OutlinedButton(onClick = { onRequestPermissions(missingData) }) { Text("Chybějící typy dat") }
+        if (missingData.isNotEmpty()) OutlinedButton(onClick = { onRequestPermissions(missingData) }) { Text(tr("Chybějící typy dat", "Missing data types")) }
         if (access.backgroundFeatureAvailable && !access.hasBackground) {
-          OutlinedButton(onClick = { onRequestPermissions(setOf(ExtraPermissions.Background)) }) { Text("Čtení na pozadí") }
+          OutlinedButton(onClick = { onRequestPermissions(setOf(ExtraPermissions.Background)) }) { Text(tr("Čtení na pozadí", "Background reading")) }
         }
         if (access.historyFeatureAvailable && !access.hasHistory) {
-          OutlinedButton(onClick = { onRequestPermissions(setOf(ExtraPermissions.History)) }) { Text("Starší data") }
+          OutlinedButton(onClick = { onRequestPermissions(setOf(ExtraPermissions.History)) }) { Text(tr("Starší data", "Older data")) }
         }
-        OutlinedButton(onClick = onOpenHealthConnectSettings) { Text("Nastavení Health Connect") }
+        OutlinedButton(onClick = onOpenHealthConnectSettings) { Text(tr("Nastavení Health Connect", "Health Connect settings")) }
       }
       if (permissionHint) {
         Text(
-          "Health Connect nepovolil nic nového. Pokud se dialog vůbec neukázal, povol oprávnění ručně: Nastavení Health Connect → Oprávnění aplikací → HealthWidgy.",
+          tr(
+            "Health Connect nepovolil nic nového. Pokud se dialog vůbec neukázal, povol oprávnění ručně: Nastavení Health Connect → Oprávnění aplikací → HealthWidgy.",
+            "Health Connect granted nothing new. If the dialog did not appear at all, grant the permissions manually: Health Connect settings → App permissions → HealthWidgy.",
+          ),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.error,
         )
@@ -162,10 +183,10 @@ fun SettingsScreen(
     }
 
     SurfaceCard(Modifier.fillMaxWidth()) {
-      Text("O aplikaci", style = MaterialTheme.typography.titleMedium)
+      Text(tr("O aplikaci", "About"), style = MaterialTheme.typography.titleMedium)
       Text("HealthWidgy ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-      TextButton(onClick = onOpenInventory, contentPadding = PaddingValues(0.dp)) { Text("Data v Health Connect (inventura)") }
-      TextButton(onClick = onOpenPrivacy, contentPadding = PaddingValues(0.dp)) { Text("Ochrana soukromí") }
+      TextButton(onClick = onOpenInventory, contentPadding = PaddingValues(0.dp)) { Text(tr("Data v Health Connect (inventura)", "Data in Health Connect (inventory)")) }
+      TextButton(onClick = onOpenPrivacy, contentPadding = PaddingValues(0.dp)) { Text(tr("Ochrana soukromí", "Privacy")) }
     }
   }
 }

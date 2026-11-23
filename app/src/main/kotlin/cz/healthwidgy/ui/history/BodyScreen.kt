@@ -26,6 +26,7 @@ import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.db.BodyMeasurementEntity
 import cz.healthwidgy.data.hc.GARMIN_CONNECT_PACKAGE
 import cz.healthwidgy.data.sync.BodyKinds
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.LineChart
 import cz.healthwidgy.ui.components.TimeLineChart
@@ -47,15 +48,15 @@ fun BodyScreen(onBack: () -> Unit, contentPadding: PaddingValues) {
   val weights by remember(from) { container.history.body(BodyKinds.WEIGHT, from) }.collectAsStateWithLifecycle(initialValue = emptyList())
   val fats by remember(from) { container.history.body(BodyKinds.BODY_FAT, from) }.collectAsStateWithLifecycle(initialValue = emptyList())
 
-  DetailScreen("Tělo", onBack, contentPadding) {
+  DetailScreen(tr("Tělo", "Body"), onBack, contentPadding) {
     item {
-      ChoiceSelector(listOf("3 měsíce", "Rok"), if (year) 1 else 0) { year = it == 1 }
+      ChoiceSelector(listOf(tr("3 měsíce", "3 months"), tr("Rok", "Year")), if (year) 1 else 0) { year = it == 1 }
     }
-    item { MeasurementCard("Váha", "kg", R.drawable.ic_scale, weights) }
-    if (fats.isNotEmpty()) item { MeasurementCard("Tělesný tuk", "%", R.drawable.ic_scale, fats) }
+    item { MeasurementCard(tr("Váha", "Weight"), "kg", R.drawable.ic_scale, weights) }
+    if (fats.isNotEmpty()) item { MeasurementCard(tr("Tělesný tuk", "Body fat"), "%", R.drawable.ic_scale, fats) }
     val latest = (weights + fats).sortedByDescending { it.time }.distinctBy { it.kind + it.date }.take(20)
     if (latest.isNotEmpty()) {
-      item { Text("Měření", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 6.dp)) }
+      item { Text(tr("Měření", "Measurements"), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 6.dp)) }
       items(latest, key = { it.kind + it.id }) { m ->
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
           Text("${Format.weekdayDate(LocalDate.parse(m.date))} · ${sourceName(m.origin)}", style = MaterialTheme.typography.bodyMedium)
@@ -68,7 +69,7 @@ fun BodyScreen(onBack: () -> Unit, contentPadding: PaddingValues) {
         HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainerHighest)
       }
     } else {
-      item { Text("V tomto období nejsou žádná měření.", style = MaterialTheme.typography.bodyMedium) }
+      item { Text(tr("V tomto období nejsou žádná měření.", "No measurements in this period."), style = MaterialTheme.typography.bodyMedium) }
     }
   }
 }
@@ -82,7 +83,7 @@ private fun MeasurementCard(title: String, unit: String, icon: Int, rows: List<B
     TileHeader(icon, title, color)
     val last = perDay.lastOrNull()
     if (last == null) {
-      Text("Bez měření.", style = MaterialTheme.typography.bodySmall)
+      Text(tr("Bez měření.", "No measurements."), style = MaterialTheme.typography.bodySmall)
       return@SurfaceCard
     }
     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -92,8 +93,10 @@ private fun MeasurementCard(title: String, unit: String, icon: Int, rows: List<B
         val delta = last.second - first.second
         val shown = Format.decimal(kotlin.math.abs(delta))
         val since = Format.dayMonth(LocalDate.parse(first.first))
+        val arrow = if (delta < 0) "▼" else "▲"
         Text(
-          if (shown == Format.decimal(0.0)) "beze změny od $since" else "${if (delta < 0) "▼" else "▲"} $shown $unit od $since",
+          if (shown == Format.decimal(0.0)) tr("beze změny od $since", "no change since $since")
+          else tr("$arrow $shown $unit od $since", "$arrow $shown $unit since $since"),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(bottom = 4.dp),
@@ -104,8 +107,10 @@ private fun MeasurementCard(title: String, unit: String, icon: Int, rows: List<B
       // Placed by date, so sparse and dense weighing periods keep their real proportions.
       WeightTimeChart(perDay, color, 120.dp)
     }
+    // "dnes", "po 3. 11." / "today", "Mon Nov 3": the day without the time.
+    val lastDay = dayAndTimeInSentence(Instant.ofEpochMilli(rows.maxOf { it.time })).substringBeforeLast(' ')
     Text(
-      "Poslední měření ${Format.dayAndTime(Instant.ofEpochMilli(rows.maxOf { it.time })).substringBeforeLast(' ').replaceFirstChar { it.lowercase() }}",
+      tr("Poslední měření $lastDay", "Last measured $lastDay"),
       style = MaterialTheme.typography.labelSmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

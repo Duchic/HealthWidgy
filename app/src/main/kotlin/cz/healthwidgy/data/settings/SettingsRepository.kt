@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import cz.healthwidgy.i18n.tr
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -18,10 +19,14 @@ enum class SourceMode {
 }
 
 /** Light or dark look, for the app and (separately) for the widgets. */
-enum class ThemeMode(val label: String) {
-  SYSTEM("Systém"),
-  LIGHT("Světlý"),
-  DARK("Tmavý"),
+enum class ThemeMode(private val labelCs: String, private val labelEn: String) {
+  SYSTEM("Systém", "System"),
+  LIGHT("Světlý", "Light"),
+  DARK("Tmavý", "Dark");
+
+  /** Read on every use: the language can change while the process lives. */
+  val label: String
+    get() = tr(labelCs, labelEn)
 }
 
 data class Settings(

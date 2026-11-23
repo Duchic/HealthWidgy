@@ -1,14 +1,24 @@
 package cz.healthwidgy.ui
 
+import androidx.health.connect.client.records.ExerciseSessionRecord
+import cz.healthwidgy.i18n.AppLang
+import cz.healthwidgy.i18n.Lang
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 class FormatTest {
   private val prague = ZoneId.of("Europe/Prague")
+
+  // Czech unless a test switches; tests must not depend on the machine's locale.
+  @Before fun czech() { AppLang.override = Lang.CS }
+
+  @After fun reset() { AppLang.override = null }
 
   @Test
   fun durationUsesHoursOnlyWhenNeeded() {
@@ -57,5 +67,20 @@ class FormatTest {
   @Test
   fun kilometresUseCzechDecimalComma() {
     assertEquals("6,1", Format.km(6120.0))
+  }
+
+  @Test
+  fun englishUsesEnglishNumbersDatesAndWords() {
+    AppLang.override = Lang.EN
+    val today = LocalDate.of(2026, 11, 10)
+    assertEquals("6.1", Format.km(6120.0))
+    assertEquals("7,369", Format.int(7369L))
+    assertEquals("Today 7:05", Format.dayAndTime(Instant.parse("2026-11-10T06:05:00Z"), prague, today))
+    assertEquals("Mon Nov 2 17:05", Format.dayAndTime(Instant.parse("2026-11-02T16:05:00Z"), prague, today))
+    assertEquals("Tuesday, November 10", Format.longDate(today))
+    assertEquals("Nov 3–9", Format.weekRange(LocalDate.of(2026, 11, 3), LocalDate.of(2026, 11, 9)))
+    assertEquals("Oct 27 – Nov 2", Format.weekRange(LocalDate.of(2026, 10, 27), LocalDate.of(2026, 11, 2)))
+    assertEquals("floors", Format.pluralEn(0, "floor", "floors"))
+    assertEquals("Running", Format.exerciseName(ExerciseSessionRecord.EXERCISE_TYPE_RUNNING))
   }
 }

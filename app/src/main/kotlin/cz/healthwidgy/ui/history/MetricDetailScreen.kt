@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.settings.Settings
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.BarChart
 import cz.healthwidgy.ui.components.LineChart
@@ -63,7 +64,7 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
           ChartStyle.LINE -> LineChart(values, labels, color, selected = selected, onSelect = { selected = it }, showPoints = period != HistoryPeriod.MONTH)
         }
         if (rowsOrNull != null && rows.isEmpty()) {
-          Text("Pro toto období zatím nejsou v databázi žádná data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          Text(tr("Pro toto období zatím nejsou v databázi žádná data.", "No data in the database for this period yet."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
     }
@@ -71,15 +72,19 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
       SurfaceCard(Modifier.fillMaxWidth()) {
         StatRow(
           buildList {
-            add("Průměr / den" to fmt(summary.average))
-            summary.total?.takeIf { def.id != MetricDefs.RestingHr.id }?.let { add("Celkem" to fmt(it)) }
+            add(tr("Průměr / den", "Daily average") to fmt(summary.average))
+            summary.total?.takeIf { def.id != MetricDefs.RestingHr.id }?.let { add(tr("Celkem", "Total") to fmt(it)) }
             add("Maximum" to fmt(summary.best?.value))
           }
         )
         if (summary.goalHits != null && goal != null) {
           Text(
-            "Cíl ${fmt(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} " +
-              Format.plural(summary.daysWithData.toLong(), "ukončeného dne", "ukončených dní", "ukončených dní") + " (bez dneška)",
+            tr(
+              "Cíl ${fmt(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} " +
+                Format.plural(summary.daysWithData.toLong(), "ukončeného dne", "ukončených dní", "ukončených dní") + " (bez dneška)",
+              "Goal ${fmt(goal)} met on ${summary.goalHits} of ${summary.daysWithData} finished " +
+                Format.pluralEn(summary.daysWithData.toLong(), "day", "days") + " (excluding today)",
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp),
@@ -87,7 +92,7 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
         }
         summary.best?.let {
           // For resting heart rate the highest value is the worst day, so name it neutrally.
-          val label = if (def.id == MetricDefs.RestingHr.id) "Nejvyšší" else "Nejlépe"
+          val label = if (def.id == MetricDefs.RestingHr.id) tr("Nejvyšší", "Highest") else tr("Nejlépe", "Best")
           Text("$label: ${it.fullLabel}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }

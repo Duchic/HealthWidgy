@@ -6,6 +6,7 @@ import cz.healthwidgy.data.overview.Overview
 import cz.healthwidgy.data.overview.OverviewRepository
 import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SettingsRepository
+import cz.healthwidgy.i18n.tr
 import java.time.Duration
 import java.time.Instant
 import kotlin.coroutines.cancellation.CancellationException
@@ -73,7 +74,10 @@ class OverviewViewModel(
             val previous = old.overview
             if (!overview.hasAnyData && overview.failures.isNotEmpty() && previous?.hasAnyData == true) {
               // Health Connect was busy or rate limited: keep the last good dashboard.
-              old.copy(loading = false, error = "Health Connect teď data nevydal. Zkus obnovit za chvíli.")
+              old.copy(
+                loading = false,
+                error = tr("Health Connect teď data nevydal. Zkus obnovit za chvíli.", "Health Connect returned no data. Try refreshing in a moment."),
+              )
             } else {
               OverviewUiState(overview = overview, loading = false)
             }

@@ -227,7 +227,23 @@ class OverviewRepository(private val source: HealthConnectSource) {
      * before the window, hence the extra look-back.
      */
     suspend fun heartSamples(from: Instant, to: Instant): Pair<List<HeartRateRecord.Sample>, Instant?> {
-      val records = read(HcTypes.HeartRate, HeartRateRecord::class, TimeRangeFilter.between(from.minus(Duration.ofHours(12)), to), ascending = true, pageSize = 5000)
+      if (!allowed(HcTypes.HeartRate)) return emptyList<HeartRateRecord.Sample>() to null
+      // All pages: a long workout with one record per second exceeds one page, and the newest hours
+      // (today's chart, the latest value) would be cut off.
+      val range = TimeRangeFilter.between(from.minus(Duration.ofHours(12)), to)
+      val records = mutableListOf<HeartRateRecord>()
+      var token: String? = null
+      var pages = 0
+      do {
+        val page =
+          source
+            .call { readRecords(ReadRecordsRequest(HeartRateRecord::class, range, origins, ascendingOrder = true, pageSize = 5000, pageToken = token)) }
+            .also { if (it is HcResult.Failed) failures[HcTypes.HeartRate.id] = it.kind }
+            .let { (it as? HcResult.Ok)?.value } ?: break
+        records += page.records
+        token = page.pageToken
+        pages++
+      } while (!token.isNullOrEmpty() && pages < 20)
       val samples = records.flatMap { it.samples }.filter { it.time >= from && it.time < to }
       return samples to records.maxOfOrNull { it.metadata.lastModifiedTime }
     }

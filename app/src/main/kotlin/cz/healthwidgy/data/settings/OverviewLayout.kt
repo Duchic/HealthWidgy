@@ -1,16 +1,34 @@
 package cz.healthwidgy.data.settings
 
-/** What one card on the Přehled tab shows. The names are stored in the settings: keep them stable. */
-enum class OverviewCardType(val label: String, val description: String, val wideByDefault: Boolean) {
-  STEPS("Kroky dnes", "Kroužek kroků; přes celou šířku i vzdálenost, patra a kalorie", true),
-  HEART("Tep", "Poslední tep, rozsah dne a klidový tep", false),
-  SLEEP("Spánek", "Délka a fáze poslední noci", false),
-  CALORIES("Kalorie", "Celkový výdej a kolik při tréninku", false),
-  WEIGHT("Váha", "Poslední vážení, změna za týden a tuk", false),
-  DISTANCE("Vzdálenost", "Dnešní kilometry a plnění cíle", false),
-  FLOORS("Patra", "Dnešní patra a plnění cíle", false),
-  WORKOUT("Poslední trénink", "Poslední trénink za 30 dní", true),
-  STEPS_WEEK("Kroky · 7 dní", "Graf kroků za týden s čarou cíle", true),
+import cz.healthwidgy.i18n.tr
+
+/**
+ * What one card on the Přehled tab shows. The names are stored in the settings: keep them stable. The
+ * texts are picked on every use, so a change of language shows at once.
+ */
+enum class OverviewCardType(
+  private val labelCs: String,
+  private val labelEn: String,
+  private val descriptionCs: String,
+  private val descriptionEn: String,
+  val wideByDefault: Boolean,
+) {
+  STEPS("Kroky dnes", "Steps today", "Kroužek kroků; přes celou šířku i vzdálenost, patra a kalorie", "Step ring; full width adds distance, floors and calories", true),
+  HEART("Tep", "Heart rate", "Poslední tep, rozsah dne a klidový tep", "Latest heart rate, today's range and resting heart rate", false),
+  SLEEP("Spánek", "Sleep", "Délka a fáze poslední noci", "Length and stages of last night", false),
+  CALORIES("Kalorie", "Calories", "Celkový výdej a kolik při tréninku", "Total burned and how much in workouts", false),
+  WEIGHT("Váha", "Weight", "Poslední vážení, změna za týden a tuk", "Latest weigh-in, weekly change and body fat", false),
+  DISTANCE("Vzdálenost", "Distance", "Dnešní kilometry a plnění cíle", "Today's kilometers and goal progress", false),
+  FLOORS("Patra", "Floors", "Dnešní patra a plnění cíle", "Today's floors and goal progress", false),
+  WORKOUT("Poslední trénink", "Latest workout", "Poslední trénink za 30 dní", "Latest workout in the last 30 days", true),
+  STEPS_WEEK("Kroky · 7 dní", "Steps · 7 days", "Graf kroků za týden s čarou cíle", "Weekly steps chart with a goal line", true),
+  ;
+
+  val label: String
+    get() = tr(labelCs, labelEn)
+
+  val description: String
+    get() = tr(descriptionCs, descriptionEn)
 }
 
 /** One card on the Přehled tab: what it shows and whether it spans the width or shares a row. */

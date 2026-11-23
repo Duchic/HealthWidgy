@@ -25,6 +25,7 @@ import cz.healthwidgy.R
 import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.sync.Metrics
 import cz.healthwidgy.data.sync.SyncEngine
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.AppIcon
 import cz.healthwidgy.ui.components.LineChart
@@ -56,24 +57,24 @@ fun HeartScreen(onBack: () -> Unit, onOpenResting: () -> Unit, contentPadding: P
   val day = daily.firstOrNull { it.date == date.toString() }
   val restingToday = resting.firstOrNull { it.date == date.toString() }
 
-  DetailScreen("Srdce", onBack, contentPadding) {
+  DetailScreen(tr("Srdce", "Heart"), onBack, contentPadding) {
     item {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { dayOffset++ }, enabled = dayOffset < SyncEngine.HOURLY_DAYS) { AppIcon(R.drawable.ic_chevron_left, size = 22.dp, contentDescription = "Předchozí den") }
+        IconButton(onClick = { dayOffset++ }, enabled = dayOffset < SyncEngine.HOURLY_DAYS) { AppIcon(R.drawable.ic_chevron_left, size = 22.dp, contentDescription = tr("Předchozí den", "Previous day")) }
         Text(
-          if (dayOffset == 0) "Dnes" else if (dayOffset == 1) "Včera" else Format.weekdayDate(date),
+          if (dayOffset == 0) tr("Dnes", "Today") else if (dayOffset == 1) tr("Včera", "Yesterday") else Format.weekdayDate(date),
           modifier = Modifier.weight(1f),
           style = MaterialTheme.typography.titleMedium,
           textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
-        IconButton(onClick = { dayOffset-- }, enabled = dayOffset > 0) { AppIcon(R.drawable.ic_chevron_right, size = 22.dp, contentDescription = "Další den") }
+        IconButton(onClick = { dayOffset-- }, enabled = dayOffset > 0) { AppIcon(R.drawable.ic_chevron_right, size = 22.dp, contentDescription = tr("Další den", "Next day")) }
       }
     }
     item {
       SurfaceCard(Modifier.fillMaxWidth()) {
-        TileHeader(R.drawable.ic_heart, "Průběh dne · rozsah a průměr za hodinu", color)
+        TileHeader(R.drawable.ic_heart, tr("Průběh dne · rozsah a průměr za hodinu", "Over the day · hourly range and average"), color)
         if (avg.all { it == null }) {
-          Text("Pro tento den nejsou hodinová data.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp))
+          Text(tr("Pro tento den nejsou hodinová data.", "No hourly data for this day."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 24.dp))
         } else {
           LineChart(avg, labels, color, band = band, height = 170.dp, showPoints = false, modifier = Modifier.padding(top = 8.dp))
         }
@@ -84,12 +85,12 @@ fun HeartScreen(onBack: () -> Unit, onOpenResting: () -> Unit, contentPadding: P
         StatRow(
           listOf(
             "Minimum" to (day?.min?.let { "${Format.int(it)} bpm" } ?: "–"),
-            "Průměr" to (day?.avg?.let { "${Format.int(it)} bpm" } ?: "–"),
+            tr("Průměr", "Average") to (day?.avg?.let { "${Format.int(it)} bpm" } ?: "–"),
             "Maximum" to (day?.max?.let { "${Format.int(it)} bpm" } ?: "–"),
           )
         )
         restingToday?.value?.let {
-          Text("Klidový tep: ${Format.int(it)} bpm", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
+          Text(tr("Klidový tep: ${Format.int(it)} bpm", "Resting heart rate: ${Format.int(it)} bpm"), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 8.dp))
         }
       }
     }
@@ -97,18 +98,21 @@ fun HeartScreen(onBack: () -> Unit, onOpenResting: () -> Unit, contentPadding: P
       SurfaceCard(Modifier.fillMaxWidth()) {
         val slots = buildSlots(resting, HistoryPeriod.MONTH, today)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-          TileHeader(R.drawable.ic_heart, "Klidový tep · 30 dní", color)
+          TileHeader(R.drawable.ic_heart, tr("Klidový tep · 30 dní", "Resting HR · 30 days"), color)
           slots.mapNotNull { it.value }.takeIf { it.isNotEmpty() }?.let {
-            Text("Ø ${Format.int(it.average())} bpm", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("Ø ${Format.int(it.average())} bpm", "Avg ${Format.int(it.average())} bpm"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         }
         LineChart(slots.map { it.value }, slots.map { it.label }, color, height = 120.dp, showPoints = false, modifier = Modifier.padding(top = 8.dp))
-        TextButton(onClick = onOpenResting, contentPadding = PaddingValues(0.dp)) { Text("Celá historie klidového tepu") }
+        TextButton(onClick = onOpenResting, contentPadding = PaddingValues(0.dp)) { Text(tr("Celá historie klidového tepu", "Full resting heart rate history")) }
       }
     }
     item {
       Text(
-        "Garmin posílá do Health Connect tep zhruba každé dvě minuty, při tréninku častěji. HRV a stres do Health Connect neposílá.",
+        tr(
+          "Garmin posílá do Health Connect tep zhruba každé dvě minuty, při tréninku častěji. HRV a stres do Health Connect neposílá.",
+          "Garmin sends heart rate to Health Connect about every two minutes, more often during workouts. It does not send HRV or stress.",
+        ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.Normal,

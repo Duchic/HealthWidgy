@@ -24,3 +24,6 @@ import kotlinx.serialization.Serializable
 @Serializable data class WorkoutKey(val id: String) : NavKey
 
 @Serializable data object InventoryKey : NavKey
+
+/** "Upravit přehled": the card layout of the Přehled tab. */
+@Serializable data object OverviewEditKey : NavKey

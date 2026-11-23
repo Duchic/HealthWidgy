@@ -40,6 +40,8 @@ The **Přehled** (Overview) tab reads Health Connect live while the app is open.
   - weight with its weekly change and body fat.
 - **Latest workout** of the last 30 days.
 - **Steps over the last 7 days**, with the goal line.
+- **Distance and floors**, each with its goal (optional cards).
+- **Your own layout:** the edit button in the header (*Upravit přehled*) sets which cards the tab shows, in which order, and whether each is half width (two side by side) or spans the width. Two half cards side by side always have the same height.
 - **Data freshness:** a source pill shows when Garmin last wrote data. Pull down to refresh.
 
 ### History

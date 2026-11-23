@@ -51,6 +51,7 @@ import cz.healthwidgy.ui.history.WorkoutDetailScreen
 import cz.healthwidgy.ui.inventory.InventoryScreen
 import cz.healthwidgy.ui.inventory.InventoryViewModel
 import cz.healthwidgy.ui.overview.OverviewActions
+import cz.healthwidgy.ui.overview.OverviewEditScreen
 import cz.healthwidgy.ui.overview.OverviewScreen
 import cz.healthwidgy.ui.overview.OverviewViewModel
 import cz.healthwidgy.ui.settings.SettingsScreen
@@ -177,6 +178,7 @@ private fun MainNavigation(
       openBody = { backStack.add(BodyKey) },
       openWorkout = { backStack.add(WorkoutKey(it)) },
       syncHistory = { container.requestSync(force = true) },
+      editLayout = { backStack.add(OverviewEditKey) },
     )
 
   Scaffold(
@@ -198,7 +200,8 @@ private fun MainNavigation(
       onBack = back,
       entryProvider =
         entryProvider {
-          entry<OverviewKey> { OverviewScreen(overviewViewModel, padding, overviewActions) }
+          entry<OverviewKey> { OverviewScreen(overviewViewModel, padding, overviewActions, settings) }
+          entry<OverviewEditKey> { OverviewEditScreen(container.settings, back, padding) }
           entry<TrendsKey> {
             TrendsScreen(
               contentPadding = padding,

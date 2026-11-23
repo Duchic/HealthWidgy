@@ -39,7 +39,8 @@ class OverviewViewModel(
 
   init {
     viewModelScope.launch {
-      settingsRepository.settings.distinctUntilChanged().collect {
+      // Only what the loaded data depends on: a new card layout or theme must not reload Health Connect.
+      settingsRepository.settings.distinctUntilChanged { a, b -> a.stepGoal == b.stepGoal && a.sourceMode == b.sourceMode }.collect {
         settings = it
         refresh(force = true)
       }

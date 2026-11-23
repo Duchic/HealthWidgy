@@ -45,7 +45,8 @@ class AppContainer(
 
   init {
     // A new step goal or data source changes what widgets show.
-    appScope.launch { settings.settings.distinctUntilChanged().drop(1).collect { WidgetUpdater.updateAll(appContext) } }
+    // (The Přehled card layout is not shown in widgets: editing it must not redraw them on every tap.)
+    appScope.launch { settings.settings.map { it.copy(overviewCards = emptyList()) }.distinctUntilChanged().drop(1).collect { WidgetUpdater.updateAll(appContext) } }
     // The widget picker shows previews in the widget theme: publish them again when it changes, after a
     // pause, so trying the options one after another uses only one of the few calls allowed per hour.
     appScope.launch {

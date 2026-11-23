@@ -33,6 +33,8 @@ data class Settings(
   val sourceMode: SourceMode = SourceMode.GARMIN_ONLY,
   val appTheme: ThemeMode = ThemeMode.SYSTEM,
   val widgetTheme: ThemeMode = ThemeMode.SYSTEM,
+  /** Cards on the Přehled tab, top to bottom. */
+  val overviewCards: List<OverviewCard> = OverviewLayout.DEFAULT,
 ) {
   companion object {
     const val DEFAULT_STEP_GOAL = 10_000
@@ -56,6 +58,7 @@ class SettingsRepository(private val context: Context) {
   private val sourceModeKey = stringPreferencesKey("source_mode")
   private val appThemeKey = stringPreferencesKey("app_theme")
   private val widgetThemeKey = stringPreferencesKey("widget_theme")
+  private val overviewCardsKey = stringPreferencesKey("overview_cards")
 
   val settings: Flow<Settings> =
     context.settingsStore.data.map { prefs ->
@@ -67,6 +70,7 @@ class SettingsRepository(private val context: Context) {
         sourceMode = prefs.enum(sourceModeKey, SourceMode.GARMIN_ONLY),
         appTheme = prefs.enum(appThemeKey, ThemeMode.SYSTEM),
         widgetTheme = prefs.enum(widgetThemeKey, ThemeMode.SYSTEM),
+        overviewCards = OverviewLayout.decode(prefs[overviewCardsKey]),
       )
     }
 
@@ -83,6 +87,16 @@ class SettingsRepository(private val context: Context) {
   suspend fun setAppTheme(mode: ThemeMode) = set(appThemeKey, mode.name)
 
   suspend fun setWidgetTheme(mode: ThemeMode) = set(widgetThemeKey, mode.name)
+
+  suspend fun setOverviewCards(cards: List<OverviewCard>) = set(overviewCardsKey, OverviewLayout.encode(cards))
+
+  /**
+   * Changes the Přehled layout from its stored value inside one DataStore transaction, so quick taps
+   * in the editor build on each other instead of overwriting each other with an older list.
+   */
+  suspend fun updateOverviewCards(transform: (List<OverviewCard>) -> List<OverviewCard>) {
+    context.settingsStore.edit { it[overviewCardsKey] = OverviewLayout.encode(transform(OverviewLayout.decode(it[overviewCardsKey]))) }
+  }
 
   private suspend fun <T> set(key: Preferences.Key<T>, value: T) {
     context.settingsStore.edit { it[key] = value }

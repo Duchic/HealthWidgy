@@ -41,6 +41,10 @@ import cz.healthwidgy.R
 import cz.healthwidgy.data.hc.FailureKind
 import cz.healthwidgy.data.hc.HcTypes
 import cz.healthwidgy.data.overview.Overview
+import cz.healthwidgy.data.settings.OverviewCard
+import cz.healthwidgy.data.settings.OverviewCardType
+import cz.healthwidgy.data.settings.OverviewLayout
+import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SourceMode
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.AppIcon
@@ -65,11 +69,13 @@ data class OverviewActions(
   val openWorkout: (String) -> Unit,
   /** Also refreshes the local history cache. */
   val syncHistory: () -> Unit,
+  /** "Upravit přehled": which cards, in which order and size. */
+  val editLayout: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues, actions: OverviewActions) {
+fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues, actions: OverviewActions, settings: Settings?) {
   val state by viewModel.state.collectAsStateWithLifecycle()
   LifecycleResumeEffect(viewModel) {
     viewModel.refresh()
@@ -95,20 +101,19 @@ fun OverviewScreen(viewModel: OverviewViewModel, contentPadding: PaddingValues, 
             TextButton(onClick = { viewModel.refresh(force = true) }) { Text("Zkusit znovu") }
           }
         }
-      else -> OverviewContent(overview, state.error, actions, onRefresh = { viewModel.refresh(force = true) })
+      else -> OverviewContent(overview, state.error, actions, settings, onRefresh = { viewModel.refresh(force = true) })
     }
   }
 }
 
 @Composable
-private fun OverviewContent(overview: Overview, error: String?, actions: OverviewActions, onRefresh: () -> Unit) {
-  val colors = LocalMetricColors.current
+private fun OverviewContent(overview: Overview, error: String?, actions: OverviewActions, settings: Settings?, onRefresh: () -> Unit) {
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
     verticalArrangement = Arrangement.spacedBy(10.dp),
   ) {
-    item { Header(overview, onRefresh) }
+    item { Header(overview, onRefresh, actions.editLayout) }
     error?.let { message -> item { Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) } }
 
     if (!overview.hasAnyData) {
@@ -117,33 +122,13 @@ private fun OverviewContent(overview: Overview, error: String?, actions: Overvie
       return@LazyColumn
     }
 
-    item { HeroCard(overview, onClick = { actions.openMetric(MetricDefs.Steps.id) }) }
-
-    val tiles = buildTiles(overview, actions)
-    if (tiles.isNotEmpty()) item { TileGrid(tiles) }
-
-    overview.workout?.let { w -> item { WorkoutCard(overview, onClick = { actions.openWorkout(w.id) }) } }
-
-    if (overview.steps7Days.any { it.value != null }) {
-      item {
-        SurfaceCard(Modifier.fillMaxWidth(), onClick = { actions.openMetric(MetricDefs.Steps.id) }) {
-          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            TileHeader(R.drawable.ic_walk, "Kroky · 7 dní", colors.steps)
-            // Average of finished days only: today is still in progress.
-            val finished = overview.steps7Days.filter { it.date != overview.date }.mapNotNull { it.value }
-            if (finished.isNotEmpty()) {
-              Text("Ø ${Format.int(finished.average())} / den", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-          }
-          Spacer(Modifier.height(8.dp))
-          DayBars(
-            values = overview.steps7Days.map { it.value },
-            labels = overview.steps7Days.map { Format.weekdayShort(it.date) },
-            color = colors.steps,
-            goal = overview.stepGoal.toDouble(),
-          )
-        }
-      }
+    // Settings are read a moment after the screen is (re)created, e.g. after rotating the phone: until
+    // then no cards rather than a layout the user does not have.
+    val cards = settings?.overviewCards
+    when {
+      cards == null -> Unit
+      cards.isEmpty() -> item { EmptyLayoutCard(actions.editLayout) }
+      else -> item { CardFlow(cards.map { card -> FlowCard(card.wide) { OverviewCardContent(card, overview, settings, actions) } }) }
     }
 
     item { Footer(overview) }
@@ -151,12 +136,15 @@ private fun OverviewContent(overview: Overview, error: String?, actions: Overvie
 }
 
 @Composable
-private fun Header(overview: Overview, onRefresh: () -> Unit) {
+private fun Header(overview: Overview, onRefresh: () -> Unit, onEdit: () -> Unit) {
   Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
       Column(Modifier.weight(1f)) {
         Text(Format.longDate(overview.date), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text("Dnes", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
+      }
+      Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+        IconButton(onClick = onEdit) { AppIcon(R.drawable.ic_tune, contentDescription = "Upravit přehled", size = 20.dp, tint = MaterialTheme.colorScheme.onSurface) }
       }
       Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         IconButton(onClick = onRefresh) { AppIcon(R.drawable.ic_sync, contentDescription = "Obnovit", size = 20.dp, tint = MaterialTheme.colorScheme.onSurface) }
@@ -214,34 +202,218 @@ private fun HeroStat(icon: Int, color: Color, value: String, unit: String) {
   }
 }
 
-private typealias Tile = @Composable () -> Unit
-
-/** Dashboard tiles for the values that exist; missing data hides its tile instead of showing zeros. */
-private fun buildTiles(overview: Overview, actions: OverviewActions): List<Tile> = buildList {
-  if (overview.heart != null || overview.restingHeartRate != null) add { HeartTile(overview, actions.openHeart) }
-  overview.sleep?.let { add { SleepTile(overview, actions.openSleep) } }
-  if (overview.totalKcal != null || overview.activeKcal != null) add { CaloriesTile(overview) { actions.openMetric(MetricDefs.TotalKcal.id) } }
-  overview.weight?.let { add { WeightTile(overview, actions.openBody) } }
-}
+/** One card of the layout: its size and content. */
+private class FlowCard(val wide: Boolean, val content: @Composable () -> Unit)
 
 /**
- * The tiles two per row, every one as tall as the tallest, so neighbours (and the rows) line up even
- * when a tile has less to show. Content stays at the top of a taller tile.
+ * The cards in the user's order ([OverviewLayout.slots]): wide ones across the width, half ones two per
+ * row. Two half cards side by side are as tall as the taller of them, so neighbours line up even when
+ * one has less to show (its content stays at the top); other rows keep their own height.
  */
 @Composable
-private fun TileGrid(tiles: List<Tile>, spacing: Dp = 8.dp) {
+private fun CardFlow(cards: List<FlowCard>, rowGap: Dp = 10.dp, columnGap: Dp = 8.dp) {
+  val slots = OverviewLayout.slots(cards.map { it.wide })
   Layout(
-    content = { tiles.forEach { tile -> Box(propagateMinConstraints = true) { tile() } } },
+    content = { cards.forEach { card -> Box(propagateMinConstraints = true) { card.content() } } },
     modifier = Modifier.fillMaxWidth(),
   ) { measurables, constraints ->
-    val gap = spacing.roundToPx()
-    val width = (constraints.maxWidth - gap) / 2
-    val height = measurables.maxOfOrNull { it.maxIntrinsicHeight(width) } ?: 0
-    val placeables = measurables.map { it.measure(Constraints.fixed(width, height)) }
-    val rows = (placeables.size + 1) / 2
-    layout(constraints.maxWidth, rows * height + (rows - 1).coerceAtLeast(0) * gap) {
-      placeables.forEachIndexed { i, p -> p.place(x = i % 2 * (width + gap), y = i / 2 * (height + gap)) }
+    val full = constraints.maxWidth
+    val columnPx = columnGap.roundToPx()
+    val rowPx = rowGap.roundToPx()
+    val half = (full - columnPx) / 2
+    val rowCount = (slots.maxOfOrNull { it.row } ?: -1) + 1
+    // Height of the half cards in each row: the taller neighbour's.
+    val halfHeights = IntArray(rowCount)
+    measurables.forEachIndexed { i, m ->
+      if (!cards[i].wide) halfHeights[slots[i].row] = maxOf(halfHeights[slots[i].row], m.maxIntrinsicHeight(half))
     }
+    val placeables =
+      measurables.mapIndexed { i, m ->
+        if (cards[i].wide) m.measure(Constraints(minWidth = full, maxWidth = full))
+        else m.measure(Constraints.fixed(half, halfHeights[slots[i].row]))
+      }
+    val rowHeights = IntArray(rowCount)
+    placeables.forEachIndexed { i, p -> rowHeights[slots[i].row] = maxOf(rowHeights[slots[i].row], p.height) }
+    val rowTops = IntArray(rowCount)
+    var y = 0
+    for (row in 0 until rowCount) {
+      rowTops[row] = y
+      y += rowHeights[row] + rowPx
+    }
+    layout(full, if (rowCount == 0) 0 else y - rowPx) {
+      placeables.forEachIndexed { i, p -> p.place(x = slots[i].column * (half + columnPx), y = rowTops[slots[i].row]) }
+    }
+  }
+}
+
+/** One card of the layout in its size; a card without data says so instead of disappearing. */
+@Composable
+private fun OverviewCardContent(card: OverviewCard, overview: Overview, settings: Settings?, actions: OverviewActions) {
+  val openSteps = { actions.openMetric(MetricDefs.Steps.id) }
+  when (card.type) {
+    OverviewCardType.STEPS -> if (card.wide) HeroCard(overview, openSteps) else StepsTile(overview, openSteps)
+    OverviewCardType.HEART ->
+      if (overview.heart != null || overview.restingHeartRate != null) HeartTile(overview, actions.openHeart) else EmptyTile(card.type, actions.openHeart)
+    OverviewCardType.SLEEP -> if (overview.sleep != null) SleepTile(overview, actions.openSleep) else EmptyTile(card.type, actions.openSleep)
+    OverviewCardType.CALORIES -> {
+      val open = { actions.openMetric(MetricDefs.TotalKcal.id) }
+      if (overview.totalKcal != null || overview.activeKcal != null) CaloriesTile(overview, open) else EmptyTile(card.type, open)
+    }
+    OverviewCardType.WEIGHT -> if (overview.weight != null) WeightTile(overview, actions.openBody) else EmptyTile(card.type, actions.openBody)
+    OverviewCardType.DISTANCE -> {
+      val open = { actions.openMetric(MetricDefs.Distance.id) }
+      val goalKm = settings?.distanceGoalKm ?: Settings.DEFAULT_DISTANCE_GOAL_KM
+      overview.distanceMeters?.let { GoalTile(card.type, Format.km(it), "km", it / 1000 / goalKm, "cíl $goalKm km", open) } ?: EmptyTile(card.type, open)
+    }
+    OverviewCardType.FLOORS -> {
+      val open = { actions.openMetric(MetricDefs.Floors.id) }
+      val goal = settings?.floorsGoal ?: Settings.DEFAULT_FLOORS_GOAL
+      overview.floors?.let {
+        val n = it.roundToLong()
+        GoalTile(card.type, Format.int(n), Format.plural(n, "patro", "patra", "pater"), it / goal, "cíl $goal ${Format.plural(goal.toLong(), "patro", "patra", "pater")}", open)
+      } ?: EmptyTile(card.type, open)
+    }
+    OverviewCardType.WORKOUT -> {
+      val w = overview.workout
+      if (w == null) EmptyTile(card.type, null, "Žádný trénink za posledních 30 dní")
+      else if (card.wide) WorkoutCard(overview) { actions.openWorkout(w.id) }
+      else WorkoutTile(overview) { actions.openWorkout(w.id) }
+    }
+    OverviewCardType.STEPS_WEEK ->
+      if (overview.steps7Days.any { it.value != null }) StepsWeekCard(overview, card.wide, openSteps) else EmptyTile(card.type, openSteps)
+  }
+}
+
+private fun OverviewCardType.icon(): Int =
+  when (this) {
+    OverviewCardType.STEPS, OverviewCardType.STEPS_WEEK -> R.drawable.ic_walk
+    OverviewCardType.HEART -> R.drawable.ic_heart
+    OverviewCardType.SLEEP -> R.drawable.ic_moon
+    OverviewCardType.CALORIES -> R.drawable.ic_flame
+    OverviewCardType.WEIGHT -> R.drawable.ic_scale
+    OverviewCardType.DISTANCE -> R.drawable.ic_route
+    OverviewCardType.FLOORS -> R.drawable.ic_stairs
+    OverviewCardType.WORKOUT -> R.drawable.ic_run
+  }
+
+/** Icon and color of a card type, also used by the layout editor. */
+@Composable
+fun OverviewCardType.iconAndColor(): Pair<Int, Color> {
+  val colors = LocalMetricColors.current
+  return icon() to
+    when (this) {
+      OverviewCardType.STEPS, OverviewCardType.STEPS_WEEK -> colors.steps
+      OverviewCardType.HEART -> colors.heart
+      OverviewCardType.SLEEP -> colors.sleep
+      OverviewCardType.CALORIES -> colors.calories
+      OverviewCardType.WEIGHT, OverviewCardType.FLOORS -> colors.body
+      OverviewCardType.DISTANCE -> colors.distance
+      OverviewCardType.WORKOUT -> MaterialTheme.colorScheme.primary
+    }
+}
+
+/** A card the user put on the layout but nothing to show yet (e.g. no weighing in 90 days). */
+@Composable
+private fun EmptyTile(type: OverviewCardType, onClick: (() -> Unit)?, text: String = "Zatím bez dat") {
+  val (icon, color) = type.iconAndColor()
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
+    TileHeader(icon, type.label, color)
+    Spacer(Modifier.height(6.dp))
+    // Two lines: a half card is narrow ("Žádný trénink za posledních 30 dní").
+    Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+  }
+}
+
+/** Every card was removed in "Upravit přehled". */
+@Composable
+private fun EmptyLayoutCard(onEdit: () -> Unit) {
+  SurfaceCard(Modifier.fillMaxWidth()) {
+    Text("Přehled je prázdný", style = MaterialTheme.typography.titleMedium)
+    Text(
+      "Všechny karty jsou skryté. Vyber, co tu chceš vidět.",
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    TextButton(onClick = onEdit, contentPadding = PaddingValues(0.dp)) { Text("Upravit přehled") }
+  }
+}
+
+/** Steps as a half card: the ring with today's count. */
+@Composable
+private fun StepsTile(overview: Overview, onClick: () -> Unit) {
+  val colors = LocalMetricColors.current
+  val steps = overview.steps ?: 0L
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
+    TileHeader(R.drawable.ic_walk, "Kroky", colors.steps)
+    // About as tall as the Tep card, its usual neighbour.
+    Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+      ProgressRing(
+        progress = if (overview.stepsUnknown) 0f else steps.toFloat() / overview.stepGoal,
+        color = colors.steps,
+        modifier = Modifier.size(72.dp),
+        strokeWidth = 7.dp,
+      ) {
+        Text(if (overview.stepsUnknown) "–" else Format.int(steps), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+      }
+    }
+    TileSub("z ${Format.int(overview.stepGoal.toLong())} kroků")
+  }
+}
+
+/** A value with a daily goal (distance, floors): the value, a progress bar and the goal. */
+@Composable
+private fun GoalTile(type: OverviewCardType, value: String, unit: String, progress: Double, goalText: String, onClick: () -> Unit) {
+  val (icon, color) = type.iconAndColor()
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
+    TileHeader(icon, type.label, color)
+    TileValue(value, unit)
+    val done = progress.coerceIn(0.0, 1.0).toFloat()
+    SegmentBar(listOf(done to color, (1f - done) to MaterialTheme.colorScheme.surfaceContainerHighest), Modifier.padding(vertical = 6.dp))
+    TileSub("${(progress * 100).roundToLong()} % · $goalText")
+  }
+}
+
+/** The latest workout as a half card: name on up to two lines, then when, how far and how long. */
+@Composable
+private fun WorkoutTile(overview: Overview, onClick: () -> Unit) {
+  val w = overview.workout ?: return
+  val (icon, color) = OverviewCardType.WORKOUT.iconAndColor()
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
+    TileHeader(icon, "Trénink", color)
+    Text(
+      w.title?.takeIf { it.isNotBlank() } ?: Format.exerciseName(w.exerciseType),
+      style = MaterialTheme.typography.titleSmall,
+      maxLines = 2,
+      overflow = TextOverflow.Ellipsis,
+      modifier = Modifier.padding(vertical = 4.dp),
+    )
+    TileSub(Format.dayAndTime(w.start))
+    TileSub(listOfNotNull(w.distanceMeters?.takeIf { it >= 100 }?.let { "${Format.km(it)} km" }, Format.clock(Duration.between(w.start, w.end).seconds)).joinToString(" · "))
+    TileSub(listOfNotNull(w.avgHeartRate?.let { "Ø $it bpm" }, w.activeKcal?.let { "${Format.int(it)} kcal" }).joinToString(" · "))
+  }
+}
+
+/** Steps of the last 7 days with the goal line; as a half card the average moves under the chart. */
+@Composable
+private fun StepsWeekCard(overview: Overview, wide: Boolean, onClick: () -> Unit) {
+  val colors = LocalMetricColors.current
+  // Average of finished days only: today is still in progress.
+  val finished = overview.steps7Days.filter { it.date != overview.date }.mapNotNull { it.value }
+  val average = finished.takeIf { it.isNotEmpty() }?.let { "Ø ${Format.int(it.average())} / den" }
+  SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = if (wide) 14.dp else 12.dp) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+      TileHeader(R.drawable.ic_walk, "Kroky · 7 dní", colors.steps)
+      if (wide && average != null) Text(average, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    Spacer(Modifier.height(8.dp))
+    DayBars(
+      values = overview.steps7Days.map { it.value },
+      labels = overview.steps7Days.map { Format.weekdayShort(it.date) },
+      color = colors.steps,
+      goal = overview.stepGoal.toDouble(),
+      barHeight = if (wide) 64.dp else 48.dp,
+    )
+    if (!wide && average != null) TileSub(average)
   }
 }
 

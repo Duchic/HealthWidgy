@@ -29,7 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -117,14 +120,7 @@ private fun OverviewContent(overview: Overview, error: String?, actions: Overvie
     item { HeroCard(overview, onClick = { actions.openMetric(MetricDefs.Steps.id) }) }
 
     val tiles = buildTiles(overview, actions)
-    tiles.chunked(2).forEach { row ->
-      item {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-          row.forEach { tile -> Box(Modifier.weight(1f)) { tile() } }
-          if (row.size == 1) Spacer(Modifier.weight(1f))
-        }
-      }
-    }
+    if (tiles.isNotEmpty()) item { TileGrid(tiles) }
 
     overview.workout?.let { w -> item { WorkoutCard(overview, onClick = { actions.openWorkout(w.id) }) } }
 
@@ -226,6 +222,27 @@ private fun buildTiles(overview: Overview, actions: OverviewActions): List<Tile>
   overview.sleep?.let { add { SleepTile(overview, actions.openSleep) } }
   if (overview.totalKcal != null || overview.activeKcal != null) add { CaloriesTile(overview) { actions.openMetric(MetricDefs.TotalKcal.id) } }
   overview.weight?.let { add { WeightTile(overview, actions.openBody) } }
+}
+
+/**
+ * The tiles two per row, every one as tall as the tallest, so neighbours (and the rows) line up even
+ * when a tile has less to show. Content stays at the top of a taller tile.
+ */
+@Composable
+private fun TileGrid(tiles: List<Tile>, spacing: Dp = 8.dp) {
+  Layout(
+    content = { tiles.forEach { tile -> Box(propagateMinConstraints = true) { tile() } } },
+    modifier = Modifier.fillMaxWidth(),
+  ) { measurables, constraints ->
+    val gap = spacing.roundToPx()
+    val width = (constraints.maxWidth - gap) / 2
+    val height = measurables.maxOfOrNull { it.maxIntrinsicHeight(width) } ?: 0
+    val placeables = measurables.map { it.measure(Constraints.fixed(width, height)) }
+    val rows = (placeables.size + 1) / 2
+    layout(constraints.maxWidth, rows * height + (rows - 1).coerceAtLeast(0) * gap) {
+      placeables.forEachIndexed { i, p -> p.place(x = i % 2 * (width + gap), y = i / 2 * (height + gap)) }
+    }
+  }
 }
 
 @Composable

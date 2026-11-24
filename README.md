@@ -10,9 +10,10 @@ It reads only the data that the Garmin Connect app already shares with **Android
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4-7F52FF?logo=kotlin&logoColor=white)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)
 ![Health Connect](https://img.shields.io/badge/Health%20Connect-read--only-0B57D0)
+[![Latest release](https://img.shields.io/github/v/release/Duchic/HealthWidgy)](https://github.com/Duchic/HealthWidgy/releases/latest)
 
 > [!NOTE]
-> The app speaks English and Czech: it follows the phone's language, or you pick one in Settings. The screenshots show the Czech interface with **generated demo data**, not a real person's health data (see [Demo build](#demo-build)).
+> The app speaks English and Czech: it follows the phone's language, or you pick one in Settings. The screenshots show the English interface with **generated demo data**, not a real person's health data (see [Demo build](#demo-build)).
 
 <table>
   <tr>
@@ -30,7 +31,7 @@ It reads only the data that the Garmin Connect app already shares with **Android
 ## Features
 
 ### Today
-The **Přehled** (Overview) tab reads Health Connect live while the app is open.
+The **Overview** tab reads Health Connect live while the app is open.
 
 - **Steps ring:** progress toward your step goal, with distance, floors and total calories next to it.
 - **Tiles:**
@@ -41,7 +42,7 @@ The **Přehled** (Overview) tab reads Health Connect live while the app is open.
 - **Latest workout** of the last 30 days.
 - **Steps over the last 7 days**, with the goal line.
 - **Distance and floors**, each with its goal (optional cards).
-- **Your own layout:** the edit button in the header (*Upravit přehled*) sets which cards the tab shows, in which order, and whether each is half width (two side by side) or spans the width. Two half cards side by side always have the same height.
+- **Your own layout:** the edit button in the header (*Edit overview*) sets which cards the tab shows, in which order, and whether each is half width (two side by side) or spans the width. Two half cards side by side always have the same height.
 - **Data freshness:** a source pill shows when Garmin last wrote data. Pull down to refresh.
 
 ### History
@@ -66,19 +67,19 @@ Thirteen widgets built with Jetpack Glance, from 1×1 to 4×2. Nine of them let 
 
 | Widget | Size | What it shows | You choose |
 |---|---|---|---|
-| Today's overview *(Dnešní přehled)* | 4×2 | A goal ring and four values | The ring and all four values |
-| Multiple values *(Více hodnot)* | 4×1 | Two to four values side by side, adapting to the size | Up to four values |
-| Ring *(Kroužek)* | 2×2 | One goal with its percentage | Steps, distance, floors or sleep |
-| Small ring *(Malý kroužek)* | 1×1 | One goal ring with its icon and value | Steps, distance, floors or sleep |
-| Goal rings *(Kroužky cílů)* | 2×2 | Three concentric goal rings | Each ring |
+| Today | 4×2 | A goal ring and four values | The ring and all four values |
+| Multiple values | 4×1 | Two to four values side by side, adapting to the size | Up to four values |
+| Ring | 2×2 | One goal with its percentage | Steps, distance, floors or sleep |
+| Small ring | 1×1 | One goal ring with its icon and value | Steps, distance, floors or sleep |
+| Goal rings | 2×2 | Three concentric goal rings | Each ring |
 | Trend | 4×2 | A bar or line chart with the average | Metric; 7, 14 or 30 days |
-| Goal calendar *(Kalendář cíle)* | 4×2 | The last 5 weeks, day by day, shaded by goal completion | Steps, distance, floors or sleep |
-| Single value *(Jedna hodnota)* | 2×1 | One value in large type | Any of the 9 metrics |
-| Small value *(Malá hodnota)* | 1×1 | An icon, a value and its unit | Any of the 9 metrics |
-| Sleep *(Spánek)* | 4×2 | Last night's duration, times and stages | Look only |
-| Heart *(Srdce)* | 2×2 | Resting heart rate and its 7-day trend | Look only |
-| Heart rate today *(Tep dnes)* | 4×2 | Today's heart rate hour by hour | Look only |
-| Latest activity *(Poslední aktivita)* | 4×1 | The latest workout | Look only |
+| Goal calendar | 4×2 | The last 5 weeks, day by day, shaded by goal completion | Steps, distance, floors or sleep |
+| Single value | 2×1 | One value in large type | Any of the 9 metrics |
+| Small value | 1×1 | An icon, a value and its unit | Any of the 9 metrics |
+| Sleep | 4×2 | Last night's duration, times and stages | Look only |
+| Heart | 2×2 | Resting heart rate and its 7-day trend | Look only |
+| Heart rate today | 4×2 | Today's heart rate hour by hour | Look only |
+| Latest activity | 4×1 | The latest workout | Look only |
 
 You can choose from 9 metrics: steps, calories, distance, floors, resting heart rate, sleep, weight, heart rate in the last hour and body fat.
 
@@ -87,7 +88,7 @@ You can choose from 9 metrics: steps, calories, distance, floors, resting heart 
   - about once an hour;
   - when the app opens;
   - when you pull down on the Today screen;
-  - when you tap ↻ on the *Today's overview* or *Heart rate today* widget.
+  - when you tap ↻ on the *Today* or *Heart rate today* widget.
 - **Theme:**
   - By default all widgets follow *Settings → Appearance → Widgets*: the system, light or dark.
   - Each widget can override that with its own look (system, light or dark), for example a dark widget on a phone in light mode.
@@ -98,10 +99,10 @@ You can choose from 9 metrics: steps, calories, distance, floors, resting heart 
 - **Daily goals** for steps, distance, floors and sleep. Garmin does not share its goals with Health Connect, so you set them here.
 - **Appearance:** System, Light or Dark, set separately for the app and for the widgets. A single widget can also have its own look.
 - **Language:** System, Čeština or English. It is Android's per-app language, so it also appears in the phone's app settings; the widgets follow it too.
-- **Widgets:** add any widget from inside the app and edit the ones already placed.
+- **Home screen widgets:** add any widget from inside the app (if the launcher supports it) and edit the ones already placed.
 - **Data source:** Garmin Connect only (the default) or all apps in Health Connect.
 - **Permissions:** how many data types are allowed and whether background reading and older data are on, with buttons to ask for what is missing.
-- **Data inventory** *(Data v Health Connect)*: what each data type contains over the last 30 days, for example sources, devices, sample spacing and whether it is allowed.
+- **Data inventory** *(Data in Health Connect)*: what each data type contains over the last 30 days, for example sources, devices, sample spacing and whether it is allowed.
 
 ## Where the data comes from
 
@@ -129,7 +130,7 @@ flowchart LR
 4. **A local cache feeds the history and widgets.** The first sync loads 30 days, or a full year with the history permission. Later syncs refresh the last few days, on app start and hourly in the background.
 
 ### What Garmin does not share
-Health Connect has no place for some Garmin data, so the app cannot show it:
+Garmin Connect does not write some of its data to Health Connect (and some of it has no Health Connect type at all), so the app cannot show it:
 - HRV, stress and Body Battery;
 - sleep score;
 - routes and splits;
@@ -148,11 +149,18 @@ Health Connect has no place for some Garmin data, so the app cannot show it:
 - **Recommended:** allow *background reading* and *older data* when HealthWidgy asks.
 
 ## Install
-There is no Play Store release; this is a personal project.
+There is no Play Store release; this is a personal project. Each version is published on the [Releases](https://github.com/Duchic/HealthWidgy/releases) page as a signed APK.
 
-1. Build the APK from source (below).
-2. Install it with `adb`.
+1. Download `HealthWidgy-<version>.apk` from the [latest release](https://github.com/Duchic/HealthWidgy/releases/latest) on the phone.
+2. Open it and allow your browser or file manager to install unknown apps when Android asks.
 3. On first start, a setup checklist walks you through Health Connect, Garmin Connect and the permissions.
+
+**Updating:** install the newer APK over the old one; settings and the local cache stay.
+
+**If you built the app yourself before:** a copy of `cz.healthwidgy` you built yourself (the debug build, or a release signed with your own key) is signed with a different key, so Android refuses to update it from a release APK (and the other way round). Uninstall it first. Its settings, placed widgets and local cache go with it, and the setup asks for the permissions again, but the data in Health Connect is not affected. The demo build (`cz.healthwidgy.demo`) is a separate app and can stay.
+
+**Signing certificate** (SHA-256), to check a download with `apksigner verify --print-certs`:
+`C2:5A:F6:25:CA:D2:B5:AD:23:1D:B2:E1:E8:55:F8:BF:0F:5C:61:C5:EB:35:A5:97:2B:DE:77:2A:49:DA:20:44`
 
 ## Build from source
 **You need:** JDK 17 or newer, and the Android SDK with platform 37. Set its path with `ANDROID_HOME` or in `local.properties`.
@@ -162,7 +170,9 @@ There is no Play Store release; this is a personal project.
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-**Unit tests:** run on the JVM (`app/src/test`). They cover formatting, the history helpers and the widget logic.
+**Release build:** `./gradlew assembleRelease` signs the APK only when your own `~/.gradle/gradle.properties` defines `healthwidgy.release.storeFile`, `healthwidgy.release.storePassword`, `healthwidgy.release.keyAlias` and `healthwidgy.release.keyPassword`. Without them, it builds an unsigned APK. No signing key or password is kept in this repository.
+
+**Unit tests:** run on the JVM (`app/src/test`). They cover formatting, the history helpers, the Overview layout and data, and the widget logic.
 
 **Maven mirror:** `settings.gradle.kts` resolves Maven Central through Google's public mirror instead of `mavenCentral()`. It works from anywhere. You can switch it back if you prefer.
 
@@ -191,6 +201,7 @@ Debug and demo builds also include an adb-only dump tool (`DebugDumpReceiver`) f
 ```
 app/src/main/kotlin/cz/healthwidgy/
 ├── data/      Health Connect access, Room cache, sync engine, settings
+├── i18n/      English and Czech: the language setting and the tr(cs, en) helper
 ├── ui/        Compose screens: overview, history, settings, setup, inventory
 └── widget/    Glance widgets, widget configuration, rendering
 app/src/debug/ adb-only tools: data dumps, widget gallery
@@ -220,7 +231,7 @@ app/src/test/  JVM unit tests
 - **Garmin's data only:** the app shows only what Garmin Connect writes to Health Connect.
 - **Not real time:** widgets refresh about once an hour.
 - **Background permission needed:** without it, widgets refresh only when you open the app.
-- **No signed release build yet.**
+- **Manual updates:** there is no store, so a new version means downloading the next APK from Releases.
 
 ## License
 No license has been chosen yet, so all rights are reserved by the author.

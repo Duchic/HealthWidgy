@@ -16,14 +16,29 @@ android {
     minSdk = 34
     // 36 on purpose: targeting 37 turns the widget bitmap memory budget into a hard exception (Android 17).
     targetSdk = 36
-    versionCode = 1
-    versionName = "0.1.0"
+    versionCode = 2
+    versionName = "0.2.0"
+  }
+
+  // Release signing comes only from the developer's own ~/.gradle/gradle.properties, never from this
+  // repository. Without those properties, assembleRelease builds an unsigned APK.
+  val releaseStoreFile = providers.gradleProperty("healthwidgy.release.storeFile").orNull
+  signingConfigs {
+    if (releaseStoreFile != null) {
+      create("release") {
+        storeFile = file(releaseStoreFile)
+        storePassword = providers.gradleProperty("healthwidgy.release.storePassword").get()
+        keyAlias = providers.gradleProperty("healthwidgy.release.keyAlias").get()
+        keyPassword = providers.gradleProperty("healthwidgy.release.keyPassword").get()
+      }
+    }
   }
 
   buildTypes {
     release {
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      signingConfig = signingConfigs.findByName("release")
     }
     // Screenshots and demos: a separate app (cz.healthwidgy.demo) that reads a generated, fictional year of
     // Garmin-like data instead of Health Connect (src/demo), plus the debug tools. Installs next to the real app.

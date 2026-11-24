@@ -1,33 +1,33 @@
 <resources>
     <string name="app_name">HealthWidgy</string>
-    <string name="privacy_title">Ochrana soukromí</string>
+    <string name="privacy_title">Privacy</string>
 
-    <!-- Widget names (picker) and descriptions -->
-    <string name="widget_config">Nastavení widgetu</string>
-    <string name="widget_today">Dnešní přehled</string>
-    <string name="widget_today_desc">Kroužek cíle a čtyři hodnoty dle výběru</string>
-    <string name="widget_steps">Kroužek</string>
-    <string name="widget_steps_desc">Jeden cíl (kroky, vzdálenost, patra, spánek) s procentem splnění</string>
-    <string name="widget_sleep">Spánek</string>
-    <string name="widget_sleep_desc">Délka spánku a fáze poslední noci</string>
-    <string name="widget_heart">Srdce</string>
-    <string name="widget_heart_desc">Klidový tep, trend 7 dní a dnešní rozsah</string>
+    <!-- Widget names (picker) and descriptions. English is the default; Czech is in values-cs. -->
+    <string name="widget_config">Widget settings</string>
+    <string name="widget_today">Today</string>
+    <string name="widget_today_desc">A goal ring and four values of your choice</string>
+    <string name="widget_steps">Ring</string>
+    <string name="widget_steps_desc">One goal (steps, distance, floors, sleep) with percent complete</string>
+    <string name="widget_sleep">Sleep</string>
+    <string name="widget_sleep_desc">Last night\'s sleep duration and stages</string>
+    <string name="widget_heart">Heart</string>
+    <string name="widget_heart_desc">Resting heart rate, 7-day trend and today\'s range</string>
     <string name="widget_steps_trend">Trend</string>
-    <string name="widget_steps_trend_desc">Graf vybraného údaje za 7, 14 nebo 30 dní</string>
-    <string name="widget_last_workout">Poslední aktivita</string>
-    <string name="widget_last_workout_desc">Poslední trénink z Garminu</string>
-    <string name="widget_single">Jedna hodnota</string>
-    <string name="widget_single_desc">Vybraná hodnota velkým písmem</string>
-    <string name="widget_mini_ring">Malý kroužek</string>
-    <string name="widget_mini_ring_desc">Jeden cíl (kroky, vzdálenost, patra, spánek) v kroužku 1×1</string>
-    <string name="widget_mini_value">Malá hodnota</string>
-    <string name="widget_mini_value_desc">Vybraná hodnota s ikonou na ploše 1×1</string>
-    <string name="widget_multi">Více hodnot</string>
-    <string name="widget_multi_desc">Dvě až čtyři vybrané hodnoty vedle sebe</string>
-    <string name="widget_goal_rings">Kroužky cílů</string>
-    <string name="widget_goal_rings_desc">Tři vybrané cíle v soustředných kroužcích</string>
-    <string name="widget_calendar">Kalendář cíle</string>
-    <string name="widget_calendar_desc">Plnění cíle den po dni za posledních 5 týdnů</string>
-    <string name="widget_heart_day">Tep dnes</string>
-    <string name="widget_heart_day_desc">Tep po hodinách od půlnoci s rozsahem a průměrem</string>
+    <string name="widget_steps_trend_desc">Chart of a chosen metric over 7, 14 or 30 days</string>
+    <string name="widget_last_workout">Latest activity</string>
+    <string name="widget_last_workout_desc">Latest workout from Garmin</string>
+    <string name="widget_single">Single value</string>
+    <string name="widget_single_desc">A chosen value in large type</string>
+    <string name="widget_mini_ring">Small ring</string>
+    <string name="widget_mini_ring_desc">One goal (steps, distance, floors, sleep) in a 1×1 ring</string>
+    <string name="widget_mini_value">Small value</string>
+    <string name="widget_mini_value_desc">A chosen value with an icon at 1×1</string>
+    <string name="widget_multi">Multiple values</string>
+    <string name="widget_multi_desc">Two to four chosen values side by side</string>
+    <string name="widget_goal_rings">Goal rings</string>
+    <string name="widget_goal_rings_desc">Three chosen goals in concentric rings</string>
+    <string name="widget_calendar">Goal calendar</string>
+    <string name="widget_calendar_desc">Goal progress day by day over the last 5 weeks</string>
+    <string name="widget_heart_day">Heart rate today</string>
+    <string name="widget_heart_day_desc">Hourly heart rate since midnight with range and average</string>
 </resources>

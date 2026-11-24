@@ -82,8 +82,8 @@ fun MetricDetailScreen(metricId: String, onBack: () -> Unit, contentPadding: and
             tr(
               "Cíl ${fmt(goal)} splněn ${summary.goalHits}× z ${summary.daysWithData} " +
                 Format.plural(summary.daysWithData.toLong(), "ukončeného dne", "ukončených dní", "ukončených dní") + " (bez dneška)",
-              "Goal ${fmt(goal)} met on ${summary.goalHits} of ${summary.daysWithData} finished " +
-                Format.pluralEn(summary.daysWithData.toLong(), "day", "days") + " (excluding today)",
+              "Goal of ${fmt(goal)} met on ${summary.goalHits} of ${summary.daysWithData} " +
+                Format.pluralEn(summary.daysWithData.toLong(), "day", "days") + " (not counting today)",
             ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

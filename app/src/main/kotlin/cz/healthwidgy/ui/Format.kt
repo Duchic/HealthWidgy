@@ -17,9 +17,9 @@ object Format {
   private val czech: Locale = Locale.forLanguageTag("cs-CZ")
   private val english: Locale = Locale.forLanguageTag("en")
 
-  /** Date patterns of one language. 24-hour time in both: the app is used in a 24-hour country. */
+  /** Date patterns of one language. 24-hour time in both ("7:05" / "07:05"): the app is used in a 24-hour country. */
   private class Patterns(val locale: Locale, czech: Boolean) {
-    val time: DateTimeFormatter = DateTimeFormatter.ofPattern("H:mm", locale)
+    val time: DateTimeFormatter = DateTimeFormatter.ofPattern(if (czech) "H:mm" else "HH:mm", locale)
     /** "10. 11." / "Nov 10" */
     val dayMonth: DateTimeFormatter = DateTimeFormatter.ofPattern(if (czech) "d. M." else "MMM d", locale)
     /** "úterý 10. listopadu" / "Tuesday, November 10" */
@@ -49,6 +49,9 @@ object Format {
     }.format(value)
 
   fun km(meters: Double): String = decimal(meters / 1000.0, 1)
+
+  /** "62 %" in Czech, "62%" in English; [number] is already formatted. */
+  fun percent(number: Any): String = tr("$number %", "$number%")
 
   /** Czech plural: 1 patro, 2–4 patra, 0 / 5+ pater. Use inside `tr(...)` next to [pluralEn]. */
   fun plural(n: Long, one: String, few: String, many: String): String =
@@ -91,16 +94,24 @@ object Format {
 
   fun time(instant: Instant, zone: ZoneId = ZoneId.systemDefault()): String = p.time.format(instant.atZone(zone))
 
-  /** "Dnes 7:05", "Včera 17:05", "po 3. 11. 17:05" / "Today 7:05", "Yesterday 17:05", "Mon Nov 3 17:05". */
-  fun dayAndTime(instant: Instant, zone: ZoneId = ZoneId.systemDefault(), today: LocalDate = LocalDate.now(zone)): String {
+  /**
+   * "Dnes 7:05", "Včera 17:05", "po 3. 11. 17:05" / "Today 7:05", "Yesterday 17:05", "Mon Nov 3 17:05".
+   * [inSentence] lowercases "Dnes"/"Today" for the middle of a sentence; weekdays keep their case.
+   */
+  fun dayAndTime(
+    instant: Instant,
+    zone: ZoneId = ZoneId.systemDefault(),
+    today: LocalDate = LocalDate.now(zone),
+    inSentence: Boolean = false,
+  ): String {
     val date = instant.atZone(zone).toLocalDate()
     val prefix =
       when (date) {
         today -> tr("Dnes", "Today")
         today.minusDays(1) -> tr("Včera", "Yesterday")
-        else -> "${p.weekdayShort.format(date)} ${p.dayMonth.format(date)}"
+        else -> return "${p.weekdayShort.format(date)} ${p.dayMonth.format(date)} ${time(instant, zone)}"
       }
-    return "$prefix ${time(instant, zone)}"
+    return "${if (inSentence) prefix.lowercase(p.locale) else prefix} ${time(instant, zone)}"
   }
 
   /** "Úterý 10. listopadu" / "Tuesday, November 10". */

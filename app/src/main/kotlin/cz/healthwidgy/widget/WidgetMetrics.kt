@@ -105,7 +105,8 @@ fun WidgetSnapshot.todayValue(metric: WidgetMetric): Double =
 
 fun WidgetSnapshot.progress(metric: WidgetMetric): Float? = goal(metric)?.let { g -> (todayValue(metric) / g.coerceAtLeast(1.0)).toFloat() }
 
-private fun Float.percent(): String = "${(this * 100).roundToInt()} %"
+/** "62 %" in Czech, "62%" in English. */
+private fun Float.percent(): String = Format.percent((this * 100).roundToInt())
 
 /** "dnes", "včera", "12. 11." */
 fun relativeDay(date: LocalDate, today: LocalDate): String =

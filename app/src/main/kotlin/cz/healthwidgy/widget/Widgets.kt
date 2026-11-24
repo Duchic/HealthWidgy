@@ -43,6 +43,7 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import cz.healthwidgy.R
 import cz.healthwidgy.data.history.stageList
 import cz.healthwidgy.data.sync.Metrics
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import java.time.Instant
 import kotlin.math.roundToInt
@@ -78,8 +79,11 @@ private fun Float.percent(): Int = (this * 100).roundToInt()
 /** Word under the value inside a goal ring. */
 private fun ringCaption(metric: WidgetMetric, s: WidgetSnapshot, r: Reading): String =
   when (metric) {
-    WidgetMetric.STEPS -> Format.plural((s.steps ?: 0.0).roundToLong(), "krok", "kroky", "kroků")
-    WidgetMetric.SLEEP -> "spánek"
+    WidgetMetric.STEPS -> {
+      val n = (s.steps ?: 0.0).roundToLong()
+      tr(Format.plural(n, "krok", "kroky", "kroků"), Format.pluralEn(n, "step", "steps"))
+    }
+    WidgetMetric.SLEEP -> tr("spánek", "sleep")
     else -> r.unit ?: metric.unit(null) ?: metric.shortLabel.lowercase()
   }
 
@@ -112,14 +116,14 @@ private fun HeaderRow(title: String, metric: WidgetMetric, summary: String?) {
 
 /** "85 % z 10 000 kroků"; without today's value the note ("naposledy včera 7:32 h") or the goal. */
 private fun goalLine(metric: WidgetMetric, s: WidgetSnapshot, r: Reading): String =
-  if (r.value == NO_VALUE) r.note ?: "cíl ${s.goalText(metric)}"
-  else "${(r.progress ?: 0f).percent()} % z ${s.goalText(metric)}"
+  if (r.value == NO_VALUE) r.note ?: tr("cíl ${s.goalText(metric)}", "goal ${s.goalText(metric)}")
+  else Format.percent((r.progress ?: 0f).percent()) + tr(" z ", " of ") + s.goalText(metric)
 
 // ---------------------------------------------------------------- Kroužek (2×2, configurable)
 
 class StepsWidget : HealthWidget() {
   companion object {
-    val METRIC = Slot("metric", "Cíl v kroužku", WidgetMetric.withGoal, WidgetMetric.STEPS)
+    val METRIC = Slot("metric", "Cíl v kroužku", "Goal in ring", WidgetMetric.withGoal, WidgetMetric.STEPS)
     val config = WidgetConfig(listOf(METRIC))
   }
 
@@ -147,13 +151,13 @@ class StepsWidgetReceiver : HealthWidgetReceiver() {
 
 class TodayWidget : HealthWidget() {
   companion object {
-    val RING = Slot("ring", "Kroužek", WidgetMetric.withGoal, WidgetMetric.STEPS)
+    val RING = Slot("ring", "Kroužek", "Ring", WidgetMetric.withGoal, WidgetMetric.STEPS)
     val STATS =
       listOf(
-        Slot("slot1", "Hodnota 1", WidgetMetric.pickerOrder, WidgetMetric.CALORIES),
-        Slot("slot2", "Hodnota 2", WidgetMetric.pickerOrder, WidgetMetric.DISTANCE),
-        Slot("slot3", "Hodnota 3", WidgetMetric.pickerOrder, WidgetMetric.FLOORS),
-        Slot("slot4", "Hodnota 4", WidgetMetric.pickerOrder, WidgetMetric.RESTING_HR),
+        Slot("slot1", "Hodnota 1", "Value 1", WidgetMetric.pickerOrder, WidgetMetric.CALORIES),
+        Slot("slot2", "Hodnota 2", "Value 2", WidgetMetric.pickerOrder, WidgetMetric.DISTANCE),
+        Slot("slot3", "Hodnota 3", "Value 3", WidgetMetric.pickerOrder, WidgetMetric.FLOORS),
+        Slot("slot4", "Hodnota 4", "Value 4", WidgetMetric.pickerOrder, WidgetMetric.RESTING_HR),
       )
     val config = WidgetConfig(listOf(RING) + STATS)
   }
@@ -166,7 +170,7 @@ class TodayWidget : HealthWidget() {
     WidgetFrame(openApp(context, Destinations.OVERVIEW)) {
       Column(GlanceModifier.fillMaxSize()) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          WidgetLabel("Dnes")
+          WidgetLabel(tr("Dnes", "Today"))
           Spacer(GlanceModifier.defaultWeight())
           RefreshStamp(s.lastSyncAt)
         }
@@ -201,7 +205,7 @@ private fun MiniStat(context: Context, metric: WidgetMetric, s: WidgetSnapshot, 
       Spacer(GlanceModifier.width(4.dp))
       Text(r.value, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 16.sp, fontWeight = FontWeight.Bold), maxLines = 1)
       if (r.unit != null) {
-        Spacer(GlanceModifier.width(2.dp))
+        Spacer(GlanceModifier.width(unitGap(r.unit, 2.dp)))
         Text(r.unit, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp), maxLines = 1)
       }
     }
@@ -219,10 +223,10 @@ class MultiValueWidget : HealthWidget() {
   companion object {
     val SLOTS =
       listOf(
-        Slot("slot1", "Hodnota 1", WidgetMetric.pickerOrder, WidgetMetric.STEPS),
-        Slot("slot2", "Hodnota 2", WidgetMetric.pickerOrder, WidgetMetric.DISTANCE),
-        Slot("slot3", "Hodnota 3", WidgetMetric.pickerOrder, WidgetMetric.CALORIES, optional = true),
-        Slot("slot4", "Hodnota 4", WidgetMetric.pickerOrder, WidgetMetric.RESTING_HR, optional = true),
+        Slot("slot1", "Hodnota 1", "Value 1", WidgetMetric.pickerOrder, WidgetMetric.STEPS),
+        Slot("slot2", "Hodnota 2", "Value 2", WidgetMetric.pickerOrder, WidgetMetric.DISTANCE),
+        Slot("slot3", "Hodnota 3", "Value 3", WidgetMetric.pickerOrder, WidgetMetric.CALORIES, optional = true),
+        Slot("slot4", "Hodnota 4", "Value 4", WidgetMetric.pickerOrder, WidgetMetric.RESTING_HR, optional = true),
       )
     val config = WidgetConfig(SLOTS)
   }
@@ -258,7 +262,7 @@ class MultiValueWidget : HealthWidget() {
       Spacer(GlanceModifier.width(4.dp))
       Text(r.value, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 15.sp, fontWeight = FontWeight.Bold), maxLines = 1)
       if (r.unit != null) {
-        Spacer(GlanceModifier.width(2.dp))
+        Spacer(GlanceModifier.width(unitGap(r.unit, 2.dp)))
         Text(r.unit, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 10.sp), maxLines = 1)
       }
     }
@@ -289,9 +293,9 @@ class GoalRingsWidget : HealthWidget() {
   companion object {
     val SLOTS =
       listOf(
-        Slot("ring1", "Vnější kroužek", WidgetMetric.withGoal, WidgetMetric.STEPS),
-        Slot("ring2", "Prostřední kroužek", WidgetMetric.withGoal, WidgetMetric.FLOORS),
-        Slot("ring3", "Vnitřní kroužek", WidgetMetric.withGoal, WidgetMetric.SLEEP),
+        Slot("ring1", "Vnější kroužek", "Outer ring", WidgetMetric.withGoal, WidgetMetric.STEPS),
+        Slot("ring2", "Prostřední kroužek", "Middle ring", WidgetMetric.withGoal, WidgetMetric.FLOORS),
+        Slot("ring3", "Vnitřní kroužek", "Inner ring", WidgetMetric.withGoal, WidgetMetric.SLEEP),
       )
     val config = WidgetConfig(SLOTS)
   }
@@ -302,7 +306,7 @@ class GoalRingsWidget : HealthWidget() {
     val metrics = SLOTS.map { chosen(it) ?: it.default }
     val readings = metrics.map { it to s.readForGoal(it) }
     val rings = readings.map { (m, r) -> (r.progress ?: 0f) to m.accent }
-    fun share(r: Reading) = if (r.value == NO_VALUE) NO_VALUE else "${(r.progress ?: 0f).percent()} %"
+    fun share(r: Reading) = if (r.value == NO_VALUE) NO_VALUE else Format.percent((r.progress ?: 0f).percent())
     WidgetFrame(openApp(context, Destinations.OVERVIEW)) {
       if (size.width >= size.height * 1.35f) {
         val ring = (size.height - 24.dp).value.coerceIn(60f, 150f).toInt()
@@ -350,7 +354,7 @@ class GoalRingsWidgetReceiver : HealthWidgetReceiver() {
 
 class StepsTrendWidget : HealthWidget() {
   companion object {
-    val METRIC = Slot("metric", "Údaj", WidgetMetric.withHistory, WidgetMetric.STEPS)
+    val METRIC = Slot("metric", "Údaj", "Metric", WidgetMetric.withHistory, WidgetMetric.STEPS)
     val config = WidgetConfig(listOf(METRIC), periods = listOf(7, 14, 30), defaultPeriod = 7)
   }
 
@@ -363,10 +367,10 @@ class StepsTrendWidget : HealthWidget() {
     val values = series.map { it.second }
     WidgetFrame(openApp(context, metric.destination())) {
       Column(GlanceModifier.fillMaxSize()) {
-        HeaderRow("${metric.shortLabel} · $days dní", metric, trendSummary(metric, series, s, withRange = size.width >= 250.dp))
+        HeaderRow(tr("${metric.shortLabel} · $days dní", "${metric.shortLabel} · $days days"), metric, trendSummary(metric, series, s, withRange = size.width >= 250.dp))
         Spacer(GlanceModifier.height(6.dp))
         if (values.none { it != null }) {
-          NoDataYet("Za $days dní bez dat")
+          NoDataYet(tr("Za $days dní bez dat", "No data in $days days"))
           return@Column
         }
         val w = (size.width - 24.dp).orZero.value.toInt().coerceAtLeast(40)
@@ -398,7 +402,7 @@ class StepsTrendWidget : HealthWidget() {
           Row(GlanceModifier.fillMaxWidth()) {
             WidgetSmall(Format.dayMonth(series.first().first))
             Spacer(GlanceModifier.defaultWeight())
-            WidgetSmall("dnes")
+            WidgetSmall(tr("dnes", "today"))
           }
         }
       }
@@ -412,10 +416,12 @@ class StepsTrendWidget : HealthWidget() {
     val values = counted.mapNotNull { it.second }
     if (values.isEmpty()) return null
     val avg = values.average()
-    val unit = metric.unit(avg)?.let { " $it" } ?: ""
+    val unit = metric.unit(avg)?.let { if (it == "%") tr(" %", "%") else " $it" } ?: ""
     // Line charts have no axis: the range tells how big the swings really are.
     val range = if (withRange && values.size > 1) "${metric.format(values.min())}–${metric.format(values.max())}$unit · " else ""
-    return if (metric.isLevel) (if (range.isEmpty()) "Ø ${metric.format(avg)}$unit" else "${range}Ø ${metric.format(avg)}") else "Ø ${metric.format(avg)}$unit / ${if (metric == WidgetMetric.SLEEP) "noc" else "den"}"
+    val a = metric.format(avg)
+    val per = if (metric == WidgetMetric.SLEEP) tr("noc", "night") else tr("den", "day")
+    return if (metric.isLevel) (if (range.isEmpty()) tr("Ø $a$unit", "Avg $a$unit") else tr("${range}Ø $a", "${range}avg $a")) else tr("Ø $a$unit / $per", "Avg $a$unit / $per")
   }
 }
 
@@ -427,10 +433,13 @@ class StepsTrendWidgetReceiver : HealthWidgetReceiver() {
 
 class CalendarWidget : HealthWidget() {
   companion object {
-    val METRIC = Slot("metric", "Cíl", WidgetMetric.withGoal, WidgetMetric.STEPS)
+    val METRIC = Slot("metric", "Cíl", "Goal", WidgetMetric.withGoal, WidgetMetric.STEPS)
     val config = WidgetConfig(listOf(METRIC))
     const val WEEKS = 5
-    private val weekdays = listOf("Po", "Út", "St", "Čt", "Pá", "So", "Ne")
+
+    /** Column headings Monday–Sunday, in the current language. */
+    private val weekdays: List<String>
+      get() = tr(listOf("Po", "Út", "St", "Čt", "Pá", "So", "Ne"), listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"))
   }
 
   @Composable
@@ -443,8 +452,10 @@ class CalendarWidget : HealthWidget() {
     val met = weeks.flatten().count { d -> d <= s.today && (values[d] ?: 0.0) >= goal }
     WidgetFrame(openApp(context, metric.destination())) {
       Column(GlanceModifier.fillMaxSize()) {
-        val label = if (size.width >= 250.dp) "${metric.shortLabel} · cíl ${s.goalText(metric)}" else metric.shortLabel
-        HeaderRow(label, metric, "splněno ${met}×")
+        val label =
+          if (size.width >= 250.dp) tr("${metric.shortLabel} · cíl ${s.goalText(metric)}", "${metric.shortLabel} · goal ${s.goalText(metric)}")
+          else metric.shortLabel
+        HeaderRow(label, metric, tr("splněno ${met}×", "Goal met ${met}×"))
         Spacer(GlanceModifier.height(6.dp))
         val gap = 3f
         val cellW = ((size.width - 24.dp).value - 6 * gap) / 7
@@ -498,7 +509,7 @@ class SleepWidget : HealthWidget() {
       val end = Instant.ofEpochMilli(night.end)
       Column(GlanceModifier.fillMaxSize()) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          WidgetLabel("Spánek", R.drawable.ic_moon, WidgetColors.sleep)
+          WidgetLabel(tr("Spánek", "Sleep"), R.drawable.ic_moon, WidgetColors.sleep)
           Spacer(GlanceModifier.defaultWeight())
           WidgetSmall(if (s.sleepIsLastNight) "${Format.time(start)} – ${Format.time(end)}" else "${Format.dayAndTime(start)} – ${Format.time(end)}")
         }
@@ -528,10 +539,10 @@ class SleepWidget : HealthWidget() {
         }
         Spacer(GlanceModifier.defaultWeight())
         Row(GlanceModifier.fillMaxWidth()) {
-          Legend("Hluboký", night.deepMinutes, GlanceModifier.defaultWeight())
-          Legend("Lehký", night.lightMinutes + night.unspecifiedMinutes, GlanceModifier.defaultWeight())
+          Legend(tr("Hluboký", "Deep"), night.deepMinutes, GlanceModifier.defaultWeight())
+          Legend(tr("Lehký", "Light"), night.lightMinutes + night.unspecifiedMinutes, GlanceModifier.defaultWeight())
           Legend("REM", night.remMinutes, GlanceModifier.defaultWeight())
-          Legend("Bdění", night.awakeMinutes, GlanceModifier.defaultWeight())
+          Legend(tr("Bdění", "Awake"), night.awakeMinutes, GlanceModifier.defaultWeight())
         }
       }
     }
@@ -578,9 +589,9 @@ class HeartWidget : HealthWidget() {
     val size = LocalSize.current
     WidgetFrame(openApp(context, Destinations.HEART)) {
       Column(GlanceModifier.fillMaxSize()) {
-        WidgetLabel("Srdce", R.drawable.ic_heart, WidgetColors.heart)
+        WidgetLabel(tr("Srdce", "Heart"), R.drawable.ic_heart, WidgetColors.heart)
         Spacer(GlanceModifier.height(4.dp))
-        WidgetValue(s.restingHr?.let { Format.int(it.second) } ?: "–", "bpm v klidu")
+        WidgetValue(s.restingHr?.let { Format.int(it.second) } ?: "–", tr("bpm v klidu", "bpm at rest"))
         val week = s.days(Metrics.RESTING_HR, 7).map { it.second }
         if (week.count { it != null } > 1) {
           val w = (size.width - 24.dp).orZero.value.toInt().coerceAtLeast(40)
@@ -591,8 +602,8 @@ class HeartWidget : HealthWidget() {
         Spacer(GlanceModifier.defaultWeight())
         val min = s.hrMin
         val max = s.hrMax
-        if (min != null && max != null) WidgetSmall("dnes ${Format.int(min)}–${Format.int(max)} bpm")
-        s.lastHourHr?.let { (hour, bpm) -> WidgetSmall("${Format.time(hour)} Ø ${Format.int(bpm)} bpm") }
+        if (min != null && max != null) WidgetSmall(tr("dnes ${Format.int(min)}–${Format.int(max)} bpm", "today ${Format.int(min)}–${Format.int(max)} bpm"))
+        s.lastHourHr?.let { (hour, bpm) -> WidgetSmall(tr("${Format.time(hour)} Ø ${Format.int(bpm)} bpm", "${Format.time(hour)} avg ${Format.int(bpm)} bpm")) }
       }
     }
   }
@@ -611,12 +622,12 @@ class HeartDayWidget : HealthWidget() {
     val hours = heartHours(s.heartHours)
     WidgetFrame(openApp(context, Destinations.HEART)) {
       if (hours.isEmpty()) {
-        NoDataYet("Dnes zatím bez tepu")
+        NoDataYet(tr("Dnes zatím bez tepu", "No heart rate yet today"))
         return@WidgetFrame
       }
       Column(GlanceModifier.fillMaxSize()) {
         Row(GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          WidgetLabel("Tep · dnes", R.drawable.ic_heart, WidgetColors.heart)
+          WidgetLabel(tr("Tep · dnes", "Heart rate · today"), R.drawable.ic_heart, WidgetColors.heart)
           Spacer(GlanceModifier.defaultWeight())
           RefreshStamp(s.lastSyncAt)
         }
@@ -625,14 +636,14 @@ class HeartDayWidget : HealthWidget() {
           val last = s.lastHourHr
           WidgetValue(last?.let { Format.int(it.second) } ?: "–", "bpm", size = 20.sp)
           Spacer(GlanceModifier.width(6.dp))
-          last?.let { WidgetSmall("Ø od ${Format.time(it.first)}", GlanceModifier.padding(bottom = 3.dp)) }
+          last?.let { WidgetSmall(tr("Ø od ${Format.time(it.first)}", "avg since ${Format.time(it.first)}"), GlanceModifier.padding(bottom = 3.dp)) }
           Spacer(GlanceModifier.defaultWeight())
           val range = listOfNotNull(s.hrMin, s.hrMax)
           val rest = s.restingHr?.takeIf { it.first == s.today }?.second
           WidgetSmall(
             listOfNotNull(
               if (range.size == 2) "${Format.int(range[0])}–${Format.int(range[1])}" else null,
-              rest?.let { "klid ${Format.int(it)}" },
+              rest?.let { tr("klid ${Format.int(it)}", "rest ${Format.int(it)}") },
             ).joinToString(" · "),
             GlanceModifier.padding(bottom = 3.dp),
           )
@@ -663,7 +674,7 @@ class HeartDayWidgetReceiver : HealthWidgetReceiver() {
 
 class SingleValueWidget : HealthWidget() {
   companion object {
-    val METRIC = Slot("metric", "Hodnota", WidgetMetric.pickerOrder, WidgetMetric.STEPS)
+    val METRIC = Slot("metric", "Hodnota", "Value", WidgetMetric.pickerOrder, WidgetMetric.STEPS)
     val config = WidgetConfig(listOf(METRIC))
   }
 
@@ -694,7 +705,7 @@ class SingleValueWidgetReceiver : HealthWidgetReceiver() {
 
 class MiniRingWidget : HealthWidget() {
   companion object {
-    val METRIC = Slot("metric", "Cíl v kroužku", WidgetMetric.withGoal, WidgetMetric.STEPS)
+    val METRIC = Slot("metric", "Cíl v kroužku", "Goal in ring", WidgetMetric.withGoal, WidgetMetric.STEPS)
     val config = WidgetConfig(listOf(METRIC))
   }
 
@@ -732,7 +743,7 @@ class MiniRingWidgetReceiver : HealthWidgetReceiver() {
 
 class MiniValueWidget : HealthWidget() {
   companion object {
-    val METRIC = Slot("metric", "Hodnota", WidgetMetric.pickerOrder, WidgetMetric.STEPS)
+    val METRIC = Slot("metric", "Hodnota", "Value", WidgetMetric.pickerOrder, WidgetMetric.STEPS)
     val config = WidgetConfig(listOf(METRIC))
   }
 
@@ -791,7 +802,7 @@ class LastWorkoutWidget : HealthWidget() {
           WidgetSmall(
             buildString {
               append(Format.dayAndTime(Instant.ofEpochMilli(w.start)))
-              w.avgHeartRate?.let { append(" · Ø $it bpm") }
+              w.avgHeartRate?.let { append(tr(" · Ø $it bpm", " · avg $it bpm")) }
               w.activeKcal?.let { append(" · ${Format.int(it)} kcal") }
             }
           )

@@ -69,7 +69,7 @@ fun OverviewEditScreen(settingsRepository: SettingsRepository, onBack: () -> Uni
         Text(
           tr(
             "Karty na Přehledu shora dolů. Poloviční karty se skládají po dvou vedle sebe, celé jdou přes celou šířku. Změny se ukládají hned.",
-            "Overview cards from top to bottom. Half-width cards sit two side by side, full-width ones span the whole width. Changes are saved right away.",
+            "Cards appear on the Overview tab in this order, from top to bottom. Half-width cards sit side by side in pairs; full-width cards span the whole row. Changes are saved right away.",
           ),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,

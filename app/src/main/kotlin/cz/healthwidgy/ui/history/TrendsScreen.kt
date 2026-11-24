@@ -26,6 +26,7 @@ import cz.healthwidgy.R
 import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.db.DailyMetricEntity
 import cz.healthwidgy.data.sync.BodyKinds
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.BarChart
 import cz.healthwidgy.ui.components.LineChart
@@ -59,17 +60,24 @@ fun TrendsScreen(
   ) {
     item {
       Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Trendy", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(tr("Trendy", "Trends"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           if (status.running) CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
           Text(
             when {
-              status.running && status.backfilling -> "Načítám historii z Health Connect. První načtení může chvíli trvat."
-              syncState?.coveredFrom != null ->
-                "Posledních 30 dní · historie od ${Format.dayMonth(LocalDate.parse(syncState!!.coveredFrom))}${LocalDate.parse(syncState!!.coveredFrom).year.let { if (it != today.year) " $it" else "" }}" +
-                  (syncState?.lastSyncAt?.let { " · aktualizováno ${Format.dayAndTime(Instant.ofEpochMilli(it)).replaceFirstChar { c -> c.lowercase() }}" } ?: "")
-              else -> "Posledních 30 dní"
-            } + if (!status.running && status.failures.isNotEmpty()) " · některá data se nepodařilo načíst" else "",
+              status.running && status.backfilling ->
+                tr("Načítám historii z Health Connect. První načtení může chvíli trvat.", "Loading history from Health Connect. The first load can take a while.")
+              syncState?.coveredFrom != null -> {
+                val coveredFrom = LocalDate.parse(syncState!!.coveredFrom)
+                val since = Format.dayMonth(coveredFrom) + coveredFrom.year.let { if (it != today.year) tr(" $it", ", $it") else "" }
+                tr("Posledních 30 dní · historie od $since", "Last 30 days · history since $since") +
+                  (syncState?.lastSyncAt?.let {
+                    val updated = Format.dayAndTime(Instant.ofEpochMilli(it), inSentence = true)
+                    tr(" · aktualizováno $updated", " · updated $updated")
+                  } ?: "")
+              }
+              else -> tr("Posledních 30 dní", "Last 30 days")
+            } + if (!status.running && status.failures.isNotEmpty()) tr(" · některá data se nepodařilo načíst", " · some data failed to load") else "",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
           )
@@ -80,15 +88,15 @@ fun TrendsScreen(
     item { MetricTrendCard(MetricDefs.Distance, from, today) { onOpenMetric(MetricDefs.Distance.id) } }
     item { MetricTrendCard(MetricDefs.TotalKcal, from, today) { onOpenMetric(MetricDefs.TotalKcal.id) } }
     item { MetricTrendCard(MetricDefs.Floors, from, today) { onOpenMetric(MetricDefs.Floors.id) } }
-    item { MetricTrendCard(MetricDefs.RestingHr, from, today, titleOverride = "Srdce · klidový tep", onClick = onOpenHeart) }
+    item { MetricTrendCard(MetricDefs.RestingHr, from, today, titleOverride = tr("Srdce · klidový tep", "Heart · resting HR"), onClick = onOpenHeart) }
     item { MetricTrendCard(MetricDefs.Sleep, from, today, onClick = onOpenSleep) }
     item {
       val weights by remember(today) { container.history.body(BodyKinds.WEIGHT, today.minusDays(89).atStartOfDay(ZoneId.systemDefault()).toInstant()) }
         .collectAsStateWithLifecycle(initialValue = emptyList())
-      TrendCardFrame("Váha · 90 dní", R.drawable.ic_scale, colors.body, weights.lastOrNull()?.let { "${Format.decimal(it.value)} kg" }, null, onOpenBody) {
+      TrendCardFrame(tr("Váha · 90 dní", "Weight · 90 days"), R.drawable.ic_scale, colors.body, weights.lastOrNull()?.let { "${Format.decimal(it.value)} kg" }, null, onOpenBody) {
         val perDay = weights.groupBy { it.date }.mapValues { (_, v) -> v.maxBy { it.time }.value }
         if (perDay.size > 1) WeightTimeChart(perDay.toList().sortedBy { it.first }, colors.body, 56.dp)
-        else Text("Málo měření pro graf.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else Text(tr("Málo měření pro graf.", "Not enough measurements for a chart."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
       }
     }
   }
@@ -109,11 +117,11 @@ private fun MetricTrendCard(def: MetricDef, from: LocalDate, today: LocalDate, t
     icon = def.icon,
     color = color,
     value = latest?.value?.let(::fmt),
-    caption = average?.let { "Ø ${fmt(it)}" },
+    caption = average?.let { tr("Ø ${fmt(it)}", "Avg ${fmt(it)}") },
     onClick = onClick,
   ) {
     if (known.isEmpty()) {
-      Text("Zatím bez dat.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(tr("Zatím bez dat.", "No data yet."), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     } else {
       val values = slots.map { it.value }
       when (def.style) {

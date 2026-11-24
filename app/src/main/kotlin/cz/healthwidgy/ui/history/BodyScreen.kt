@@ -61,7 +61,7 @@ fun BodyScreen(onBack: () -> Unit, contentPadding: PaddingValues) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
           Text("${Format.weekdayDate(LocalDate.parse(m.date))} · ${sourceName(m.origin)}", style = MaterialTheme.typography.bodyMedium)
           Text(
-            if (m.kind == BodyKinds.WEIGHT) "${Format.decimal(m.value)} kg" else "${Format.decimal(m.value)} %",
+            if (m.kind == BodyKinds.WEIGHT) "${Format.decimal(m.value)} kg" else Format.percent(Format.decimal(m.value)),
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.Medium,
           )
@@ -87,16 +87,17 @@ private fun MeasurementCard(title: String, unit: String, icon: Int, rows: List<B
       return@SurfaceCard
     }
     Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-      Text("${Format.decimal(last.second)} $unit", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+      Text(if (unit == "%") Format.percent(Format.decimal(last.second)) else "${Format.decimal(last.second)} $unit", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
       val first = perDay.first()
       if (perDay.size > 1) {
         val delta = last.second - first.second
         val shown = Format.decimal(kotlin.math.abs(delta))
         val since = Format.dayMonth(LocalDate.parse(first.first))
         val arrow = if (delta < 0) "▼" else "▲"
+        val amount = if (unit == "%") Format.percent(shown) else "$shown $unit"
         Text(
           if (shown == Format.decimal(0.0)) tr("beze změny od $since", "no change since $since")
-          else tr("$arrow $shown $unit od $since", "$arrow $shown $unit since $since"),
+          else tr("$arrow $amount od $since", "$arrow $amount since $since"),
           style = MaterialTheme.typography.labelMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(bottom = 4.dp),
@@ -108,7 +109,7 @@ private fun MeasurementCard(title: String, unit: String, icon: Int, rows: List<B
       WeightTimeChart(perDay, color, 120.dp)
     }
     // "dnes", "po 3. 11." / "today", "Mon Nov 3": the day without the time.
-    val lastDay = dayAndTimeInSentence(Instant.ofEpochMilli(rows.maxOf { it.time })).substringBeforeLast(' ')
+    val lastDay = Format.dayAndTime(Instant.ofEpochMilli(rows.maxOf { it.time }), inSentence = true).substringBeforeLast(' ')
     Text(
       tr("Poslední měření $lastDay", "Last measured $lastDay"),
       style = MaterialTheme.typography.labelSmall,

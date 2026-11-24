@@ -19,7 +19,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
@@ -34,6 +37,8 @@ import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SettingsRepository
 import cz.healthwidgy.data.settings.SourceMode
 import cz.healthwidgy.data.settings.ThemeMode
+import cz.healthwidgy.i18n.AppLanguage
+import cz.healthwidgy.i18n.LanguageChoice
 import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.SurfaceCard
@@ -96,8 +101,28 @@ fun SettingsScreen(
         tr(
           "Systém: světlý a tmavý vzhled se přepíná spolu s telefonem (i podle plánu). Barvy se řídí tapetou. " +
             "Jednotlivý widget můžeš přepnout i zvlášť v jeho nastavení (Widgety na plochu → Upravit).",
-          "System: light and dark switch together with the phone (also on a schedule). Colors follow the wallpaper. " +
+          "System: follows the phone's dark theme setting, including its schedule. Colors follow the wallpaper. " +
             "You can also switch a single widget in its own settings (Home screen widgets → Edit).",
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+      )
+    }
+
+    SurfaceCard(Modifier.fillMaxWidth()) {
+      val context = LocalContext.current
+      // Kept by Android, not in our settings; choosing one recreates the screen in the new language.
+      var language by remember { mutableStateOf(AppLanguage.current(context)) }
+      Text(tr("Jazyk", "Language"), style = MaterialTheme.typography.titleMedium)
+      SegmentedChoice(null, LanguageChoice.entries, language, { it.label }) {
+        language = it
+        AppLanguage.set(context, it)
+      }
+      Text(
+        tr(
+          "Systém: čeština, když je telefon v češtině, jinak angličtina. Stejný jazyk mají i widgety na ploše.",
+          "System: Czech when the phone is set to Czech, otherwise English. Home screen widgets use the same language.",
         ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -146,7 +171,7 @@ fun SettingsScreen(
               else -> tr("nepovoleno", "not allowed")
             }
           )
-          append(tr("\nData starší než 30 dní před prvním povolením: ", "\nData older than 30 days before the first grant: "))
+          append(tr("\nData starší než 30 dní před prvním povolením: ", "\nOlder data: "))
           append(
             when {
               !access.historyFeatureAvailable -> tr("telefon nepodporuje", "not supported by the phone")
@@ -185,8 +210,13 @@ fun SettingsScreen(
     SurfaceCard(Modifier.fillMaxWidth()) {
       Text(tr("O aplikaci", "About"), style = MaterialTheme.typography.titleMedium)
       Text("HealthWidgy ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-      TextButton(onClick = onOpenInventory, contentPadding = PaddingValues(0.dp)) { Text(tr("Data v Health Connect (inventura)", "Data in Health Connect (inventory)")) }
-      TextButton(onClick = onOpenPrivacy, contentPadding = PaddingValues(0.dp)) { Text(tr("Ochrana soukromí", "Privacy")) }
+      // The label fills the button: a short one ("Privacy") would otherwise be centred in the minimum width.
+      TextButton(onClick = onOpenInventory, contentPadding = PaddingValues(0.dp), modifier = Modifier.fillMaxWidth()) {
+        Text(tr("Data v Health Connect (inventura)", "Data in Health Connect (inventory)"), Modifier.weight(1f))
+      }
+      TextButton(onClick = onOpenPrivacy, contentPadding = PaddingValues(0.dp), modifier = Modifier.fillMaxWidth()) {
+        Text(tr("Ochrana soukromí", "Privacy"), Modifier.weight(1f))
+      }
     }
   }
 }
@@ -200,15 +230,22 @@ private fun GoalChips(title: String, options: List<Int>, selected: Int, label: (
 }
 
 @Composable
-private fun ThemeChoice(title: String, selected: ThemeMode, onSelect: (ThemeMode) -> Unit) {
-  Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
-  SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-    ThemeMode.entries.forEachIndexed { i, mode ->
+private fun ThemeChoice(title: String, selected: ThemeMode, onSelect: (ThemeMode) -> Unit) =
+  SegmentedChoice(title, ThemeMode.entries, selected, { it.label }, onSelect)
+
+/** A row of segmented buttons; without [title] it sits right under the card heading. */
+@Composable
+private fun <T> SegmentedChoice(title: String?, options: List<T>, selected: T, label: (T) -> String, onSelect: (T) -> Unit) {
+  if (title != null) {
+    Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
+  }
+  SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = if (title == null) 8.dp else 0.dp)) {
+    options.forEachIndexed { i, option ->
       SegmentedButton(
-        selected = selected == mode,
-        onClick = { onSelect(mode) },
-        shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size),
-        label = { Text(mode.label, maxLines = 1) },
+        selected = selected == option,
+        onClick = { onSelect(option) },
+        shape = SegmentedButtonDefaults.itemShape(i, options.size),
+        label = { Text(label(option), maxLines = 1) },
       )
     }
   }

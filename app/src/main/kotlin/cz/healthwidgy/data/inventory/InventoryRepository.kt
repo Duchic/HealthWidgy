@@ -106,7 +106,8 @@ class InventoryRepository(private val context: Context, private val source: Heal
     val types =
       HcTypes.all.map { type ->
         val result =
-          if (!access.isGranted(type)) TypeInventory(type.id, type.label, type.recordType.simpleName.orEmpty(), permissionGranted = false)
+          // The export keeps the Czech label whatever the app language (the screen shows the current one by id).
+          if (!access.isGranted(type)) TypeInventory(type.id, type.labelCs, type.recordType.simpleName.orEmpty(), permissionGranted = false)
           else inventoryOf(type, window, windowDays)
         onProgress(result)
         result
@@ -140,7 +141,7 @@ class InventoryRepository(private val context: Context, private val source: Heal
   }
 
   private suspend fun inventoryOf(type: HcType, window: TimeRangeFilter, windowDays: Int): TypeInventory {
-    val base = TypeInventory(type.id, type.label, type.recordType.simpleName.orEmpty(), permissionGranted = true)
+    val base = TypeInventory(type.id, type.labelCs, type.recordType.simpleName.orEmpty(), permissionGranted = true)
     val records =
       when (val r = source.call { readAll(type.recordType, window) }) {
         is HcResult.Ok -> r.value

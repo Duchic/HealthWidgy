@@ -2,6 +2,7 @@ package cz.healthwidgy
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
 import cz.healthwidgy.data.db.HealthDatabase
 import cz.healthwidgy.data.db.RoomTransactionRunner
 import cz.healthwidgy.data.hc.HealthConnectSource
@@ -11,6 +12,7 @@ import cz.healthwidgy.data.overview.OverviewRepository
 import cz.healthwidgy.data.settings.SettingsRepository
 import cz.healthwidgy.data.sync.SyncEngine
 import cz.healthwidgy.data.sync.SyncWorker
+import cz.healthwidgy.i18n.AppLang
 import cz.healthwidgy.widget.WidgetUpdater
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineScope
@@ -67,6 +69,18 @@ class AppContainer(
     }
   }
 
+  /**
+   * Placed widgets keep the text they were drawn with: redraw them now. The picker previews are published
+   * again by the next sync (not here, so switching back and forth does not use up the hourly allowance).
+   */
+  fun onLanguageChanged(onRedrawn: () -> Unit) {
+    previewsPublished.set(false)
+    appScope.launch {
+      WidgetUpdater.updateAll(appContext)
+      onRedrawn()
+    }
+  }
+
   /** When the system rejected a preview (rate limit), the next sync of this process tries again. */
   private suspend fun publishPreviews() {
     if (!WidgetUpdater.publishPreviews(appContext)) previewsPublished.set(false)
@@ -81,6 +95,29 @@ open class HealthWidgyApp : Application() {
     super.onCreate()
     container = createContainer()
     SyncWorker.schedule(this)
+    // The language may have changed while the app was not running (phone language, Settings → Apps).
+    redrawWidgetsIfLanguageChanged()
+  }
+
+  override fun onConfigurationChanged(newConfig: Configuration) {
+    super.onConfigurationChanged(newConfig)
+    redrawWidgetsIfLanguageChanged()
+  }
+
+  /**
+   * Compares the current language with the one the widgets were last drawn in. It is stored only after the
+   * redraw, so a process killed in between tries again on its next start.
+   */
+  private fun redrawWidgetsIfLanguageChanged() {
+    val prefs = getSharedPreferences(LANGUAGE_PREFS, MODE_PRIVATE)
+    val language = AppLang.current.tag
+    if (prefs.getString(KEY_WIDGET_LANGUAGE, null) == language) return
+    container.onLanguageChanged { prefs.edit().putString(KEY_WIDGET_LANGUAGE, language).apply() }
+  }
+
+  private companion object {
+    const val LANGUAGE_PREFS = "language"
+    const val KEY_WIDGET_LANGUAGE = "widgets_drawn_in"
   }
 
   /** The demo build (src/demo) overrides this to read generated data instead of Health Connect. */

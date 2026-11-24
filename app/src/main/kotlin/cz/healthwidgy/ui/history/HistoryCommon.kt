@@ -30,14 +30,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import cz.healthwidgy.R
 import cz.healthwidgy.data.db.DailyMetricEntity
-import cz.healthwidgy.i18n.AppLang
 import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.AppIcon
-import java.time.Instant
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.ZoneId
 
 /** Today's date, re-read on every resume so screens left open overnight move on to the new day. */
 @Composable
@@ -48,18 +45,6 @@ fun rememberToday(): LocalDate {
     onPauseOrDispose {}
   }
   return today
-}
-
-/**
- * [Format.dayAndTime] for the middle of a sentence: "dnes 7:05", "po 3. 11. 17:05" / "today 7:05",
- * "Mon Nov 3 17:05" (English weekday and month names keep their capital).
- */
-fun dayAndTimeInSentence(instant: Instant, zone: ZoneId = ZoneId.systemDefault()): String {
-  val text = Format.dayAndTime(instant, zone)
-  val today = LocalDate.now(zone)
-  val date = instant.atZone(zone).toLocalDate()
-  val relative = date == today || date == today.minusDays(1)
-  return if (AppLang.isCzech || relative) text.replaceFirstChar { it.lowercase() } else text
 }
 
 enum class HistoryPeriod(private val labelCs: String, private val labelEn: String, val days: Long) {

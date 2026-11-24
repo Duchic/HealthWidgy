@@ -36,6 +36,7 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import cz.healthwidgy.MainActivity
 import cz.healthwidgy.R
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import java.time.Instant
 
@@ -84,12 +85,15 @@ fun WidgetLabel(text: String, icon: Int? = null, iconColor: ColorProvider? = nul
   }
 }
 
+/** The gap between a value and its unit: none before "%" in English ("20.1%"), as Format.percent writes it. */
+fun unitGap(unit: String, gap: Dp): Dp = if (unit == "%") tr(gap, 0.dp) else gap
+
 @Composable
 fun WidgetValue(value: String, unit: String? = null, size: TextUnit = 22.sp, color: ColorProvider = GlanceTheme.colors.onSurface) {
   Row(verticalAlignment = Alignment.Bottom) {
     Text(value, style = TextStyle(color = color, fontSize = size, fontWeight = FontWeight.Bold), maxLines = 1)
     if (unit != null) {
-      Spacer(GlanceModifier.width(3.dp))
+      Spacer(GlanceModifier.width(unitGap(unit, 3.dp)))
       Text(unit, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp), maxLines = 1, modifier = GlanceModifier.padding(bottom = 3.dp))
     }
   }
@@ -131,7 +135,7 @@ fun Rings(context: Context, rings: List<Pair<Float, Accent>>, sizeDp: Int, strok
 @Composable
 fun RefreshStamp(lastSyncAt: Instant?) {
   Row(verticalAlignment = Alignment.CenterVertically, modifier = GlanceModifier.clickable(actionRunCallback<RefreshCallback>())) {
-    Image(ImageProvider(R.drawable.ic_sync), contentDescription = "Obnovit", modifier = GlanceModifier.size(12.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant))
+    Image(ImageProvider(R.drawable.ic_sync), contentDescription = tr("Obnovit", "Refresh"), modifier = GlanceModifier.size(12.dp), colorFilter = ColorFilter.tint(GlanceTheme.colors.onSurfaceVariant))
     Spacer(GlanceModifier.width(3.dp))
     WidgetSmall(lastSyncAt?.let { Format.time(it) } ?: "–")
   }
@@ -139,9 +143,9 @@ fun RefreshStamp(lastSyncAt: Instant?) {
 
 /** Empty state when the cache has nothing for today yet. */
 @Composable
-fun NoDataYet(text: String = "Zatím bez dat") {
+fun NoDataYet(text: String = tr("Zatím bez dat", "No data yet")) {
   Column(modifier = GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.CenterHorizontally) {
     Text(text, style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp, fontWeight = FontWeight.Medium))
-    WidgetSmall("Otevři aplikaci HealthWidgy")
+    WidgetSmall(tr("Otevři aplikaci HealthWidgy", "Open the HealthWidgy app"))
   }
 }

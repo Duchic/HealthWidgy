@@ -74,7 +74,7 @@ fun ActivitiesScreen(contentPadding: PaddingValues, onOpenWorkout: (String) -> U
         val km = list.mapNotNull { it.distanceMeters }.sum()
         Column(Modifier.padding(top = 10.dp, bottom = 2.dp)) {
           val range = Format.weekRange(monday, monday.plusDays(6))
-          Text(tr("Týden $range", "Week $range"), style = MaterialTheme.typography.titleSmall)
+          Text(tr("Týden $range", "Week of $range"), style = MaterialTheme.typography.titleSmall)
           Text(
             buildString {
               val n = list.size.toLong()
@@ -106,7 +106,7 @@ private fun WorkoutRow(w: ExerciseSessionEntity, onClick: () -> Unit) {
             append(Format.dayAndTime(Instant.ofEpochMilli(w.start)))
             append(" · ").append(Format.clock((w.end - w.start) / 1000))
             w.distanceMeters?.takeIf { it >= 100 }?.let { append(" · ${Format.km(it)} km") }
-            w.avgHeartRate?.let { append(tr(" · Ø $it bpm", " · avg $it bpm")) }
+            w.avgHeartRate?.let { append(tr(" · Ø $it bpm", " · $it bpm")) }
           },
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -21,6 +21,8 @@ data class InventoryUiState(
   val report: InventoryReport? = null,
   val exportFile: File? = null,
   val error: String? = null,
+  /** The last run was cancelled because the app left the screen (the screen words it in the current language). */
+  val interrupted: Boolean = false,
 )
 
 class InventoryViewModel(
@@ -57,6 +59,6 @@ class InventoryViewModel(
   fun cancelIfRunning() {
     if (!_state.value.running) return
     job?.cancel()
-    _state.update { it.copy(running = false, types = emptyList(), error = "Inventura byla přerušena, protože aplikace přešla do pozadí. Spusť ji znovu.") }
+    _state.update { it.copy(running = false, types = emptyList(), interrupted = true) }
   }
 }

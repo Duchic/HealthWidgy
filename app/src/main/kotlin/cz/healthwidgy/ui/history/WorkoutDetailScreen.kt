@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.healthwidgy.R
 import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.history.WorkoutSeries
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.SurfaceCard
 import cz.healthwidgy.ui.components.TileHeader
@@ -54,10 +55,10 @@ fun WorkoutDetailScreen(id: String, onBack: () -> Unit, contentPadding: PaddingV
       value = if (w == null) null else container.history.workoutSeries(Instant.ofEpochMilli(w.start), Instant.ofEpochMilli(w.end))
     }
 
-  DetailScreen(w?.let(::workoutName) ?: "Trénink", onBack, contentPadding) {
+  DetailScreen(w?.let(::workoutName) ?: tr("Trénink", "Workout"), onBack, contentPadding) {
     if (workout == null) return@DetailScreen
     if (w == null) {
-      item { Text("Trénink se nenašel. Možná ještě neproběhla synchronizace.", style = MaterialTheme.typography.bodyMedium) }
+      item { Text(tr("Trénink se nenašel. Možná ještě neproběhla synchronizace.", "Workout not found. It may not have synced yet."), style = MaterialTheme.typography.bodyMedium) }
       return@DetailScreen
     }
     val start = Instant.ofEpochMilli(w.start)
@@ -76,37 +77,39 @@ fun WorkoutDetailScreen(id: String, onBack: () -> Unit, contentPadding: PaddingV
           val distance = w.distanceMeters?.takeIf { it >= 100 }
           StatRow(
             listOf(
-              "Čas" to Format.clock(seconds),
-              "Vzdálenost" to (distance?.let { "${Format.km(it)} km" } ?: "–"),
-              if (w.exerciseType in PACE_TYPES) "Tempo" to (distance?.let { Format.pace(seconds, it) }?.let { "$it /km" } ?: "–")
-              else "Rychlost" to (distance?.let { "${Format.decimal(it / 1000.0 / (seconds / 3600.0))} km/h" } ?: "–"),
+              tr("Čas", "Time") to Format.clock(seconds),
+              tr("Vzdálenost", "Distance") to (distance?.let { "${Format.km(it)} km" } ?: "–"),
+              if (w.exerciseType in PACE_TYPES) tr("Tempo", "Pace") to (distance?.let { Format.pace(seconds, it) }?.let { "$it /km" } ?: "–")
+              else tr("Rychlost", "Speed") to (distance?.let { "${Format.decimal(it / 1000.0 / (seconds / 3600.0))} km/h" } ?: "–"),
             )
           )
           StatRow(
             listOf(
-              "Ø tep" to (w.avgHeartRate?.let { "$it bpm" } ?: "–"),
-              "Max tep" to (w.maxHeartRate?.let { "$it bpm" } ?: "–"),
-              "Kalorie" to (w.activeKcal?.let { "${Format.int(it)} kcal" } ?: "–"),
+              tr("Ø tep", "Avg HR") to (w.avgHeartRate?.let { "$it bpm" } ?: "–"),
+              tr("Max tep", "Max HR") to (w.maxHeartRate?.let { "$it bpm" } ?: "–"),
+              tr("Kalorie", "Calories") to (w.activeKcal?.let { "${Format.int(it)} kcal" } ?: "–"),
             )
           )
           w.elevationGainMeters?.takeIf { it > 0.5 }?.let {
-            Text("Převýšení ${Format.int(it)} m", style = MaterialTheme.typography.bodyMedium)
+            Text(tr("Převýšení ${Format.int(it)} m", "Elevation gain ${Format.int(it)} m"), style = MaterialTheme.typography.bodyMedium)
           }
-          if (!w.statsComputed) Text("Počítám souhrn…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+          if (!w.statsComputed) Text(tr("Počítám souhrn…", "Calculating summary…"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
       }
     }
     val s = series
     item {
       SurfaceCard(Modifier.fillMaxWidth()) {
-        TileHeader(R.drawable.ic_heart, "Tep v průběhu tréninku", colors.heart)
+        TileHeader(R.drawable.ic_heart, tr("Tep v průběhu tréninku", "Heart rate during workout"), colors.heart)
         when {
-          s == null -> Text("Načítám…", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 16.dp))
-          s.heartRate.size < 2 -> Text("Žádná data tepu.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 16.dp))
+          s == null -> Text(tr("Načítám…", "Loading…"), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 16.dp))
+          s.heartRate.size < 2 -> Text(tr("Žádná data tepu.", "No heart rate data."), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 16.dp))
           else -> {
             TimeLineChart(s.heartRate.map { it.first to it.second.toDouble() }, start, end, colors.heart, Modifier.padding(top = 8.dp))
+            val range = "${s.heartRate.minOf { it.second }}–${s.heartRate.maxOf { it.second }} bpm"
+            val count = s.heartRate.size
             Text(
-              "${s.heartRate.minOf { it.second }}–${s.heartRate.maxOf { it.second }} bpm · ${s.heartRate.size} měření",
+              tr("$range · $count měření", "$range · $count ${Format.pluralEn(count.toLong(), "reading", "readings")}"),
               style = MaterialTheme.typography.labelSmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -117,7 +120,7 @@ fun WorkoutDetailScreen(id: String, onBack: () -> Unit, contentPadding: PaddingV
     if (s != null && s.speed.size >= 2) {
       item {
         SurfaceCard(Modifier.fillMaxWidth()) {
-          TileHeader(R.drawable.ic_route, "Rychlost (km/h)", colors.workout)
+          TileHeader(R.drawable.ic_route, tr("Rychlost (km/h)", "Speed (km/h)"), colors.workout)
           TimeLineChart(s.speed.map { it.first to it.second * 3.6 }, start, end, colors.workout, Modifier.padding(top = 8.dp))
           Text(
             "max ${Format.decimal(s.speed.maxOf { it.second } * 3.6)} km/h",
@@ -129,7 +132,7 @@ fun WorkoutDetailScreen(id: String, onBack: () -> Unit, contentPadding: PaddingV
     }
     item {
       Text(
-        "Mapu trasy a mezičasy Garmin do Health Connect neposílá.",
+        tr("Mapu trasy a mezičasy Garmin do Health Connect neposílá.", "Garmin does not send the route map or splits to Health Connect."),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.Normal,

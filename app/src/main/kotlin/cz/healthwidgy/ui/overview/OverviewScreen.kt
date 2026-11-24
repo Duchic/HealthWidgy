@@ -47,6 +47,7 @@ import cz.healthwidgy.data.settings.OverviewCardType
 import cz.healthwidgy.data.settings.OverviewLayout
 import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.settings.SourceMode
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.AppIcon
 import cz.healthwidgy.ui.components.DayBars
@@ -162,7 +163,7 @@ private fun Header(overview: Overview, onRefresh: () -> Unit, onEdit: () -> Unit
     }
     val source =
       if (overview.sourceMode == SourceMode.GARMIN_ONLY) tr("Data z Garminu", "Data from Garmin") else tr("Data ze všech zdrojů", "Data from all sources")
-    val written = overview.latestSourceWrite?.let { " ${midSentence(Format.dayAndTime(it))}" } ?: ""
+    val written = overview.latestSourceWrite?.let { tr(" ", " as of ") + Format.dayAndTime(it, inSentence = true) } ?: ""
     Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.primaryContainer) {
       Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
         Box(Modifier.size(6.dp).background(LocalMetricColors.current.steps, CircleShape))
@@ -176,21 +177,19 @@ private fun Header(overview: Overview, onRefresh: () -> Unit, onEdit: () -> Unit
   }
 }
 
-/**
- * A [Format.dayAndTime] text (or its day part) inside a sentence: "dnes 7:05" / "today 7:05". Weekdays
- * keep their case ("po 3. 11.", "Mon Nov 3").
- */
-private fun midSentence(dayAndTime: String): String =
-  tr(
-    dayAndTime.replaceFirstChar { it.lowercase() },
-    if (dayAndTime.startsWith("Today") || dayAndTime.startsWith("Yesterday")) dayAndTime.replaceFirstChar { it.lowercase() } else dayAndTime,
-  )
-
 /** "patro / patra / pater" or "floor / floors" for [n]. */
 private fun floorsWord(n: Long): String = tr(Format.plural(n, "patro", "patra", "pater"), Format.pluralEn(n, "floor", "floors"))
 
 /** "z 10 000 kroků" / "of 10,000 steps". */
 private fun ofStepGoal(goal: Int): String = tr("z ${Format.int(goal.toLong())} kroků", "of ${Format.int(goal.toLong())} steps")
+
+/** "z toho 350 při tréninku" / "incl. 350 in workouts". */
+private fun ofItInWorkouts(activeKcal: Double): String =
+  tr("z toho ${Format.int(activeKcal)} při tréninku", "incl. ${Format.int(activeKcal)} in workouts")
+
+/** "klidový 52 (odhad)" / "resting 52 (est.)". */
+private fun restingText(bpm: Long, isEstimate: Boolean): String =
+  tr("klidový $bpm${if (isEstimate) " (odhad)" else ""}", "resting $bpm${if (isEstimate) " (est.)" else ""}")
 
 @Composable
 private fun HeroCard(overview: Overview, onClick: () -> Unit) {
@@ -464,7 +463,7 @@ private fun GoalTile(
     TileValue(value, unit)
     val done = progress.coerceIn(0.0, 1.0).toFloat()
     SegmentBar(listOf(done to color, (1f - done) to MaterialTheme.colorScheme.surfaceContainerHighest), Modifier.padding(vertical = 6.dp))
-    TileSub("${(progress * 100).roundToLong()} % · $goalText")
+    TileSub("${Format.percent((progress * 100).roundToLong())} · $goalText")
     if (week != null && today != null) WeekBars(week, today, color)
   }
 }
@@ -518,7 +517,7 @@ private fun SleepWideCard(overview: Overview, onClick: () -> Unit) {
   }
   val endedToday = sleep.end.atZone(ZoneId.systemDefault()).toLocalDate() == overview.date
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
-    TileHeader(R.drawable.ic_moon, "Spánek", colors.sleep)
+    TileHeader(R.drawable.ic_moon, tr("Spánek", "Sleep"), colors.sleep)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
       Box(Modifier.weight(1f)) { TileValue("${sleep.asleepMinutes / 60} h ${sleep.asleepMinutes % 60}", "min") }
       TileSub(
@@ -531,17 +530,17 @@ private fun SleepWideCard(overview: Overview, onClick: () -> Unit) {
       start = sleep.start,
       end = sleep.end,
       laneColors = listOf(colors.stageAwake, colors.stageRem, colors.stageLight, colors.stageDeep),
-      laneLabels = listOf("Bdění", "REM", "Lehký", "Hluboký"),
+      laneLabels = listOf(tr("Bdění", "Awake"), "REM", tr("Lehký", "Light"), tr("Hluboký", "Deep")),
       laneOf = ::sleepLaneOf,
       modifier = Modifier.padding(top = 8.dp),
       height = 88.dp,
     )
     // Four equal columns: with a larger font the texts are shortened instead of pushing the last one out.
     Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-      StageStat("Hluboký", stages.deepMinutes, colors.stageDeep, Modifier.weight(1f))
-      StageStat("Lehký", stages.lightMinutes + stages.unspecifiedMinutes, colors.stageLight, Modifier.weight(1f))
+      StageStat(tr("Hluboký", "Deep"), stages.deepMinutes, colors.stageDeep, Modifier.weight(1f))
+      StageStat(tr("Lehký", "Light"), stages.lightMinutes + stages.unspecifiedMinutes, colors.stageLight, Modifier.weight(1f))
       StageStat("REM", stages.remMinutes, colors.stageRem, Modifier.weight(1f))
-      StageStat("Bdění", stages.awakeMinutes, colors.stageAwake, Modifier.weight(1f))
+      StageStat(tr("Bdění", "Awake"), stages.awakeMinutes, colors.stageAwake, Modifier.weight(1f))
     }
   }
 }
@@ -564,11 +563,11 @@ private fun CaloriesWideCard(overview: Overview, onClick: () -> Unit) {
   val total = overview.totalKcal
   val active = overview.activeKcal
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
-    TileHeader(R.drawable.ic_flame, "Kalorie", colors.calories)
+    TileHeader(R.drawable.ic_flame, tr("Kalorie", "Calories"), colors.calories)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
       // Before the first sync of the day only the week is known.
       Box(Modifier.weight(1f)) { TileValue((total ?: active)?.let { Format.int(it) } ?: NO_DATA, "kcal") }
-      if (total != null && active != null) TileSub("z toho ${Format.int(active)} při tréninku") else if (total == null) TileSub("při tréninku")
+      if (total != null && active != null) TileSub(ofItInWorkouts(active)) else if (total == null && active != null) TileSub(tr("při tréninku", "in workouts"))
     }
     if (total != null && active != null && total > 0) {
       SegmentBar(
@@ -586,19 +585,20 @@ private fun WeightWideCard(overview: Overview, onClick: () -> Unit) {
   val color = LocalMetricColors.current.body
   val weight = overview.weight ?: return
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick) {
-    TileHeader(R.drawable.ic_scale, "Váha", color)
+    TileHeader(R.drawable.ic_scale, tr("Váha", "Weight"), color)
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
       Box(Modifier.weight(1f)) { TileValue(Format.decimal(weight.kilograms), "kg") }
       Column(Modifier.padding(bottom = 4.dp), horizontalAlignment = Alignment.End) {
-        weight.deltaKilograms?.let { TileSub("${Format.signedKg(it)} za týden") }
-        weight.bodyFatPercent?.let { TileSub("tuk ${Format.decimal(it)} %") }
+        weight.deltaKilograms?.let { TileSub(tr("${Format.signedKg(it)} za týden", "${Format.signedKg(it)} in a week")) }
+        weight.bodyFatPercent?.let { TileSub(tr("tuk ", "body fat ") + Format.percent(Format.decimal(it))) }
       }
     }
     if (weight.last30Days.size >= 2) {
-      Text("Posledních 30 dní", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
+      Text(tr("Posledních 30 dní", "Last 30 days"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 10.dp))
       WeightTimeChart(weight.last30Days.map { (day, kg) -> day.toString() to kg }, color, 72.dp)
     }
-    TileSub("Poslední měření ${Format.dayAndTime(weight.time).substringBeforeLast(' ').replaceFirstChar { it.lowercase() }}")
+    val day = Format.dayAndTime(weight.time, inSentence = true).substringBeforeLast(' ')
+    TileSub(tr("Poslední měření $day", "Last weigh-in $day"))
   }
 }
 
@@ -608,7 +608,7 @@ private fun WorkoutTile(overview: Overview, onClick: () -> Unit) {
   val w = overview.workout ?: return
   val (icon, color) = OverviewCardType.WORKOUT.iconAndColor()
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
-    TileHeader(icon, "Trénink", color)
+    TileHeader(icon, tr("Trénink", "Workout"), color)
     Text(
       w.title?.takeIf { it.isNotBlank() } ?: Format.exerciseName(w.exerciseType),
       style = MaterialTheme.typography.titleSmall,
@@ -618,7 +618,7 @@ private fun WorkoutTile(overview: Overview, onClick: () -> Unit) {
     )
     TileSub(Format.dayAndTime(w.start))
     TileSub(listOfNotNull(w.distanceMeters?.takeIf { it >= 100 }?.let { "${Format.km(it)} km" }, Format.clock(Duration.between(w.start, w.end).seconds)).joinToString(" · "))
-    TileSub(listOfNotNull(w.avgHeartRate?.let { "Ø $it bpm" }, w.activeKcal?.let { "${Format.int(it)} kcal" }).joinToString(" · "))
+    TileSub(listOfNotNull(w.avgHeartRate?.let { tr("Ø $it bpm", "Avg $it bpm") }, w.activeKcal?.let { "${Format.int(it)} kcal" }).joinToString(" · "))
   }
 }
 
@@ -628,10 +628,10 @@ private fun StepsWeekCard(overview: Overview, wide: Boolean, onClick: () -> Unit
   val colors = LocalMetricColors.current
   // Average of finished days only: today is still in progress.
   val finished = overview.steps7Days.filter { it.date != overview.date }.mapNotNull { it.value }
-  val average = finished.takeIf { it.isNotEmpty() }?.let { "Ø ${Format.int(it.average())} / den" }
+  val average = finished.takeIf { it.isNotEmpty() }?.let { Format.int(it.average()) }?.let { tr("Ø $it / den", "Avg $it / day") }
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = if (wide) 14.dp else 12.dp) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-      TileHeader(R.drawable.ic_walk, "Kroky · 7 dní", colors.steps)
+      TileHeader(R.drawable.ic_walk, tr("Kroky · 7 dní", "Steps · 7 days"), colors.steps)
       if (wide && average != null) Text(average, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     Spacer(Modifier.height(8.dp))
@@ -692,7 +692,7 @@ private fun SleepTile(overview: Overview, onClick: () -> Unit) {
   val colors = LocalMetricColors.current
   val sleep = overview.sleep ?: return
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
-    TileHeader(R.drawable.ic_moon, "Spánek", colors.sleep)
+    TileHeader(R.drawable.ic_moon, tr("Spánek", "Sleep"), colors.sleep)
     TileValue("${sleep.asleepMinutes / 60} h ${sleep.asleepMinutes % 60}", "min")
     val stages = sleep.stages
     if (stages != null) {
@@ -722,7 +722,7 @@ private fun CaloriesTile(overview: Overview, onClick: () -> Unit) {
   val total = overview.totalKcal
   val active = overview.activeKcal
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
-    TileHeader(R.drawable.ic_flame, "Kalorie", colors.calories)
+    TileHeader(R.drawable.ic_flame, tr("Kalorie", "Calories"), colors.calories)
     TileValue(Format.int(total ?: active ?: 0.0), "kcal")
     // Garmin writes active calories only for workouts, so the highlighted part is "burned while training".
     if (total != null && active != null && total > 0) {
@@ -730,11 +730,11 @@ private fun CaloriesTile(overview: Overview, onClick: () -> Unit) {
         listOf(active.toFloat() to colors.calories, (total - active).coerceAtLeast(0.0).toFloat() to MaterialTheme.colorScheme.surfaceContainerHighest),
         Modifier.padding(vertical = 6.dp),
       )
-      TileSub("z toho ${Format.int(active)} při tréninku")
+      TileSub(ofItInWorkouts(active))
     } else if (total != null) {
-      TileSub("celkový výdej za den")
+      TileSub(tr("celkový výdej za den", "total burned today"))
     } else {
-      TileSub("při tréninku")
+      TileSub(tr("při tréninku", "in workouts"))
     }
   }
 }
@@ -744,14 +744,15 @@ private fun WeightTile(overview: Overview, onClick: () -> Unit) {
   val color = LocalMetricColors.current.body
   val weight = overview.weight ?: return
   SurfaceCard(Modifier.fillMaxWidth(), onClick = onClick, contentPadding = 12.dp) {
-    TileHeader(R.drawable.ic_scale, "Váha", color)
+    TileHeader(R.drawable.ic_scale, tr("Váha", "Weight"), color)
     TileValue(Format.decimal(weight.kilograms), "kg")
     if (weight.recent.size > 1) Sparkline(weight.recent, color, Modifier.fillMaxWidth().height(22.dp).padding(top = 4.dp))
     TileSub(
       buildString {
-        weight.deltaKilograms?.let { append(Format.signedKg(it)).append(" za týden · ") }
+        weight.deltaKilograms?.let { append(Format.signedKg(it)).append(tr(" za týden · ", " in a week · ")) }
         append(Format.dayAndTime(weight.time).substringBeforeLast(' '))
-        weight.bodyFatPercent?.let { append(" · tuk ${Format.decimal(it)} %") }
+        // A half card is narrow: "fat" rather than "body fat".
+        weight.bodyFatPercent?.let { append(tr(" · tuk ", " · fat ") + Format.percent(Format.decimal(it))) }
       }
     )
   }
@@ -781,7 +782,7 @@ private fun WorkoutCard(overview: Overview, onClick: () -> Unit) {
           buildString {
             append(Format.dayAndTime(w.start))
             append(" · ").append(Format.clock(seconds))
-            w.avgHeartRate?.let { append(" · Ø $it bpm") }
+            w.avgHeartRate?.let { append(tr(" · Ø $it bpm", " · Avg $it bpm")) }
             w.activeKcal?.let { append(" · ${Format.int(it)} kcal") }
           },
           style = MaterialTheme.typography.bodySmall,
@@ -798,19 +799,33 @@ private fun WorkoutCard(overview: Overview, onClick: () -> Unit) {
 private fun NoDataCard(overview: Overview, onRefresh: () -> Unit) {
   val failed = overview.failures.isNotEmpty()
   SurfaceCard(Modifier.fillMaxWidth()) {
-    Text(if (failed) "Data se nepodařilo načíst" else "Zatím tu nejsou žádná data", style = MaterialTheme.typography.titleMedium)
+    Text(
+      if (failed) tr("Data se nepodařilo načíst", "Couldn't load data") else tr("Zatím tu nejsou žádná data", "No data here yet"),
+      style = MaterialTheme.typography.titleMedium,
+    )
     Spacer(Modifier.height(4.dp))
     Text(
       when {
-        failed -> "Health Connect je možná zaneprázdněné nebo chybí oprávnění. Zkus obnovit za chvíli, případně zkontroluj oprávnění v Nastavení."
+        failed ->
+          tr(
+            "Health Connect je možná zaneprázdněné nebo chybí oprávnění. Zkus obnovit za chvíli, případně zkontroluj oprávnění v Nastavení.",
+            "Health Connect may be busy, or permissions are missing. Try refreshing in a moment, or check permissions in Settings.",
+          )
         overview.sourceMode == SourceMode.GARMIN_ONLY ->
-          "Health Connect zatím neobsahuje žádná aktuální data z Garmin Connect. Zkontroluj v aplikaci Garmin Connect: Více → Nastavení → Propojené aplikace → Health Connect, a pak synchronizuj hodinky."
-        else -> "Health Connect zatím neobsahuje žádná aktuální data, která by aplikace mohla číst."
+          tr(
+            "Health Connect zatím neobsahuje žádná aktuální data z Garmin Connect. Zkontroluj v aplikaci Garmin Connect: Více → Nastavení → Propojené aplikace → Health Connect, a pak synchronizuj hodinky.",
+            "Health Connect has no recent data from Garmin Connect yet. In the Garmin Connect app, check More → Settings → Connected Apps → Health Connect, then sync your watch.",
+          )
+        else ->
+          tr(
+            "Health Connect zatím neobsahuje žádná aktuální data, která by aplikace mohla číst.",
+            "Health Connect has no recent data the app can read yet.",
+          )
       },
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    if (failed) TextButton(onClick = onRefresh, contentPadding = PaddingValues(0.dp)) { Text("Zkusit znovu") }
+    if (failed) TextButton(onClick = onRefresh, contentPadding = PaddingValues(0.dp)) { Text(tr("Zkusit znovu", "Try again")) }
   }
 }
 
@@ -821,13 +836,14 @@ private fun Footer(overview: Overview) {
   val denied = overview.notGranted + overview.failures.filterValues { it == FailureKind.NoPermission }.keys
   Column(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
     if (errors.isNotEmpty()) {
-      Text("Nepodařilo se načíst: ${labels(errors)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+      Text(tr("Nepodařilo se načíst: ${labels(errors)}", "Couldn't load: ${labels(errors)}"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
     }
     if (denied.isNotEmpty()) {
-      Text("Bez oprávnění: ${labels(denied)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+      Text(tr("Bez oprávnění: ${labels(denied)}", "No permission: ${labels(denied)}"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     Text(
-      if (overview.sourceMode == SourceMode.GARMIN_ONLY) "Zdroj: Garmin Connect přes Health Connect" else "Zdroj: všechny aplikace v Health Connect",
+      if (overview.sourceMode == SourceMode.GARMIN_ONLY) tr("Zdroj: Garmin Connect přes Health Connect", "Source: Garmin Connect via Health Connect")
+      else tr("Zdroj: všechny aplikace v Health Connect", "Source: all apps in Health Connect"),
       style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

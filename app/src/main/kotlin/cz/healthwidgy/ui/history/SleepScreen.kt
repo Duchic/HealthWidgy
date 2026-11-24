@@ -38,6 +38,7 @@ import cz.healthwidgy.data.db.SleepSessionEntity
 import cz.healthwidgy.data.history.stageList
 import cz.healthwidgy.data.settings.Settings
 import cz.healthwidgy.data.sync.Metrics
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.Format
 import cz.healthwidgy.ui.components.AppIcon
 import cz.healthwidgy.ui.components.BarChart
@@ -65,11 +66,11 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
   var index by rememberSaveable { mutableIntStateOf(0) }
   val night = nights.getOrNull(index.coerceIn(0, (nights.size - 1).coerceAtLeast(0)))
 
-  DetailScreen("Spánek", onBack, contentPadding) {
+  DetailScreen(tr("Spánek", "Sleep"), onBack, contentPadding) {
     // Still loading from the database: show nothing rather than a false "no nights".
     if (sessionsOrNull == null) return@DetailScreen
     if (night == null) {
-      item { Text("Zatím tu nejsou žádné noci. Data se načtou při příští synchronizaci.", style = MaterialTheme.typography.bodyMedium) }
+      item { Text(tr("Zatím tu nejsou žádné noci. Data se načtou při příští synchronizaci.", "No nights yet. They will load with the next sync."), style = MaterialTheme.typography.bodyMedium) }
       return@DetailScreen
     }
     val start = Instant.ofEpochMilli(night.start)
@@ -77,21 +78,22 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
     val wake = LocalDate.parse(night.wakeDate)
     item {
       Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = { index++ }, enabled = index < nights.size - 1) { AppIcon(R.drawable.ic_chevron_left, size = 22.dp, contentDescription = "Předchozí noc") }
+        IconButton(onClick = { index++ }, enabled = index < nights.size - 1) { AppIcon(R.drawable.ic_chevron_left, size = 22.dp, contentDescription = tr("Předchozí noc", "Previous night")) }
+        val range = Format.weekRange(wake.minusDays(1), wake)
         Text(
-          "Noc ${Format.weekRange(wake.minusDays(1), wake)}",
+          tr("Noc $range", "Night of $range"),
           modifier = Modifier.weight(1f),
           style = MaterialTheme.typography.titleMedium,
           textAlign = TextAlign.Center,
         )
-        IconButton(onClick = { index-- }, enabled = index > 0) { AppIcon(R.drawable.ic_chevron_right, size = 22.dp, contentDescription = "Další noc") }
+        IconButton(onClick = { index-- }, enabled = index > 0) { AppIcon(R.drawable.ic_chevron_right, size = 22.dp, contentDescription = tr("Další noc", "Next night")) }
       }
     }
     item {
       SurfaceCard(Modifier.fillMaxWidth()) {
-        TileHeader(R.drawable.ic_moon, "Spánek", colors.sleep)
+        TileHeader(R.drawable.ic_moon, tr("Spánek", "Sleep"), colors.sleep)
         Text(Format.duration(night.asleepMinutes), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold, color = colors.sleep)
-        Text("V posteli ${Format.time(start)} – ${Format.time(end)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(tr("V posteli ${Format.time(start)} – ${Format.time(end)}", "In bed ${Format.time(start)} – ${Format.time(end)}"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val stages = night.stageList()
         if (stages.isNotEmpty()) {
           Hypnogram(
@@ -99,7 +101,7 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
             start = start,
             end = end,
             laneColors = listOf(colors.stageAwake, colors.stageRem, colors.stageLight, colors.stageDeep),
-            laneLabels = listOf("Bdění", "REM", "Lehký", "Hluboký"),
+            laneLabels = listOf(tr("Bdění", "Awake"), "REM", tr("Lehký", "Light"), tr("Hluboký", "Deep")),
             laneOf = ::sleepLaneOf,
             modifier = Modifier.padding(top = 12.dp),
           )
@@ -108,7 +110,7 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
             Text(Format.time(end), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         } else {
-          Text("Tato noc nemá fáze spánku.", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+          Text(tr("Tato noc nemá fáze spánku.", "This night has no sleep stages."), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
         }
       }
     }
@@ -116,10 +118,10 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
       SurfaceCard(Modifier.fillMaxWidth()) {
         val inBed = ((night.end - night.start) / 60_000).coerceAtLeast(1)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-          StageRow("Hluboký", night.deepMinutes, inBed, colors.stageDeep)
-          StageRow("Lehký", night.lightMinutes + night.unspecifiedMinutes, inBed, colors.stageLight)
+          StageRow(tr("Hluboký", "Deep"), night.deepMinutes, inBed, colors.stageDeep)
+          StageRow(tr("Lehký", "Light"), night.lightMinutes + night.unspecifiedMinutes, inBed, colors.stageLight)
           StageRow("REM", night.remMinutes, inBed, colors.stageRem)
-          StageRow("Bdění", night.awakeMinutes, inBed, colors.stageAwake)
+          StageRow(tr("Bdění", "Awake"), night.awakeMinutes, inBed, colors.stageAwake)
         }
       }
     }
@@ -127,19 +129,23 @@ fun SleepScreen(onBack: () -> Unit, onOpenHistory: () -> Unit, contentPadding: P
       SurfaceCard(Modifier.fillMaxWidth()) {
         val slots = buildSlots(nightly, HistoryPeriod.MONTH, today)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-          TileHeader(R.drawable.ic_moon, "Posledních 30 nocí", colors.sleep)
+          TileHeader(R.drawable.ic_moon, tr("Posledních 30 nocí", "Last 30 nights"), colors.sleep)
           slots.mapNotNull { it.value }.takeIf { it.isNotEmpty() }?.let {
-            Text("Ø ${Format.duration(it.average().roundToInt().toLong())}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val average = Format.duration(it.average().roundToInt().toLong())
+            Text(tr("Ø $average", "Avg $average"), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
           }
         }
         BarChart(slots.map { it.value }, slots.map { it.label }, colors.sleep, goal = sleepGoal.toDouble(), height = 120.dp, modifier = Modifier.padding(top = 8.dp))
-        Text("Čárkovaná čára: cíl ${Format.hours(sleepGoal)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TextButton(onClick = onOpenHistory, contentPadding = PaddingValues(0.dp)) { Text("Celá historie spánku") }
+        Text(tr("Čárkovaná čára: cíl ${Format.hours(sleepGoal)}", "Dashed line: goal ${Format.hours(sleepGoal)}"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        TextButton(onClick = onOpenHistory, contentPadding = PaddingValues(0.dp)) { Text(tr("Celá historie spánku", "Full sleep history")) }
       }
     }
     item {
       Text(
-        "Skóre spánku Garmin do Health Connect neposílá, proto ho tu nenajdeš.",
+        tr(
+          "Skóre spánku Garmin do Health Connect neposílá, proto ho tu nenajdeš.",
+          "Garmin does not send the sleep score to Health Connect, so you will not find it here.",
+        ),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
@@ -166,6 +172,6 @@ private fun StageRow(name: String, minutes: Long, inBed: Long, color: Color) {
     Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(3.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
       Box(Modifier.fillMaxWidth(share.coerceIn(0f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(color))
     }
-    Text("${Format.duration(minutes)} · ${(share * 100).roundToInt()} %", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("${Format.duration(minutes)} · ${Format.percent((share * 100).roundToInt())}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
   }
 }

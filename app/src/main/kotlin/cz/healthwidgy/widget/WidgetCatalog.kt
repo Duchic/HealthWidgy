@@ -9,10 +9,22 @@ import androidx.glance.LocalState
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import cz.healthwidgy.data.settings.ThemeMode
+import cz.healthwidgy.i18n.tr
 
 /** A place in a widget the user fills with a metric. [optional] slots can also be left empty. */
-data class Slot(val key: String, val title: String, val options: List<WidgetMetric>, val default: WidgetMetric, val optional: Boolean = false) {
+data class Slot(
+  val key: String,
+  private val titleCs: String,
+  private val titleEn: String,
+  val options: List<WidgetMetric>,
+  val default: WidgetMetric,
+  val optional: Boolean = false,
+) {
   val prefKey: Preferences.Key<String> = stringPreferencesKey(key)
+
+  /** Heading in the widget's settings, in the current language. */
+  val title: String
+    get() = tr(titleCs, titleEn)
 }
 
 /** What can be configured on a widget: its slots and, for charts, the number of days. */
@@ -48,18 +60,18 @@ object WidgetChoices {
     val parts =
       config.slots.mapNotNull { metric(prefs, it)?.shortLabel } +
         listOfNotNull(
-          config.periods.takeIf { it.isNotEmpty() }?.let { "${period(prefs, config)} dní" },
+          config.periods.takeIf { it.isNotEmpty() }?.let { tr("${period(prefs, config)} dní", "${period(prefs, config)} days") },
           theme(prefs)?.let { themeLabel(it) },
         )
-    return parts.joinToString(" · ").ifEmpty { "Vzhled podle nastavení" }
+    return parts.joinToString(" · ").ifEmpty { tr("Vzhled podle nastavení", "Theme as in settings") }
   }
 
   /** "světlý vzhled", "tmavý vzhled", "vzhled podle systému". */
   fun themeLabel(theme: ThemeMode): String =
     when (theme) {
-      ThemeMode.SYSTEM -> "vzhled podle systému"
-      ThemeMode.LIGHT -> "světlý vzhled"
-      ThemeMode.DARK -> "tmavý vzhled"
+      ThemeMode.SYSTEM -> tr("vzhled podle systému", "system theme")
+      ThemeMode.LIGHT -> tr("světlý vzhled", "light theme")
+      ThemeMode.DARK -> tr("tmavý vzhled", "dark theme")
     }
 }
 
@@ -74,15 +86,26 @@ fun chosen(slot: Slot): WidgetMetric? = WidgetChoices.metric(LocalState.current 
 @Composable
 fun chosenPeriod(config: WidgetConfig): Int = WidgetChoices.period(LocalState.current as? Preferences, config)
 
-/** Everything the app knows about one widget type: picker texts, classes and what can be configured. */
+/**
+ * Everything the app knows about one widget type: picker texts, classes and what can be configured.
+ * [name] and [description] are read in the current language on every use.
+ */
 data class WidgetInfo(
-  val name: String,
+  private val nameCs: String,
+  private val nameEn: String,
   val size: String,
-  val description: String,
+  private val descriptionCs: String,
+  private val descriptionEn: String,
   val receiver: Class<out GlanceAppWidgetReceiver>,
   val create: () -> GlanceAppWidget,
   val config: WidgetConfig? = null,
-)
+) {
+  val name: String
+    get() = tr(nameCs, nameEn)
+
+  val description: String
+    get() = tr(descriptionCs, descriptionEn)
+}
 
 object WidgetCatalog {
   /** Widgets without values to pick still get their own theme (declared before [all], which uses it). */
@@ -90,20 +113,72 @@ object WidgetCatalog {
 
   val all: List<WidgetInfo> =
     listOf(
-      WidgetInfo("Dnešní přehled", "4×2", "Kroužek a čtyři hodnoty dle výběru", TodayWidgetReceiver::class.java, ::TodayWidget, TodayWidget.config),
-      WidgetInfo("Více hodnot", "4×1", "Dvě až čtyři hodnoty vedle sebe", MultiValueWidgetReceiver::class.java, ::MultiValueWidget, MultiValueWidget.config),
-      WidgetInfo("Kroužek", "2×2", "Jeden cíl s procentem splnění", StepsWidgetReceiver::class.java, ::StepsWidget, StepsWidget.config),
-      WidgetInfo("Malý kroužek", "1×1", "Jeden cíl v kroužku na nejmenší ploše", MiniRingWidgetReceiver::class.java, ::MiniRingWidget, MiniRingWidget.config),
-      WidgetInfo("Kroužky cílů", "2×2", "Tři cíle v soustředných kroužcích", GoalRingsWidgetReceiver::class.java, ::GoalRingsWidget, GoalRingsWidget.config),
-      WidgetInfo("Trend", "4×2", "Graf za 7, 14 nebo 30 dní", StepsTrendWidgetReceiver::class.java, ::StepsTrendWidget, StepsTrendWidget.config),
-      WidgetInfo("Kalendář cíle", "4×2", "Posledních 5 týdnů, den po dni", CalendarWidgetReceiver::class.java, ::CalendarWidget, CalendarWidget.config),
-      WidgetInfo("Jedna hodnota", "2×1", "Vybraná hodnota velkým písmem", SingleValueWidgetReceiver::class.java, ::SingleValueWidget, SingleValueWidget.config),
-      WidgetInfo("Malá hodnota", "1×1", "Vybraná hodnota na nejmenší ploše", MiniValueWidgetReceiver::class.java, ::MiniValueWidget, MiniValueWidget.config),
+      WidgetInfo(
+        "Dnešní přehled", "Today", "4×2",
+        "Kroužek a čtyři hodnoty dle výběru", "A ring and four values of your choice",
+        TodayWidgetReceiver::class.java, ::TodayWidget, TodayWidget.config,
+      ),
+      WidgetInfo(
+        "Více hodnot", "Multiple values", "4×1",
+        "Dvě až čtyři hodnoty vedle sebe", "Two to four values side by side",
+        MultiValueWidgetReceiver::class.java, ::MultiValueWidget, MultiValueWidget.config,
+      ),
+      WidgetInfo(
+        "Kroužek", "Ring", "2×2",
+        "Jeden cíl s procentem splnění", "One goal with percent complete",
+        StepsWidgetReceiver::class.java, ::StepsWidget, StepsWidget.config,
+      ),
+      WidgetInfo(
+        "Malý kroužek", "Small ring", "1×1",
+        "Jeden cíl v kroužku na nejmenší ploše", "One goal in a ring at the smallest size",
+        MiniRingWidgetReceiver::class.java, ::MiniRingWidget, MiniRingWidget.config,
+      ),
+      WidgetInfo(
+        "Kroužky cílů", "Goal rings", "2×2",
+        "Tři cíle v soustředných kroužcích", "Three goals in concentric rings",
+        GoalRingsWidgetReceiver::class.java, ::GoalRingsWidget, GoalRingsWidget.config,
+      ),
+      WidgetInfo(
+        "Trend", "Trend", "4×2",
+        "Graf za 7, 14 nebo 30 dní", "Chart over 7, 14 or 30 days",
+        StepsTrendWidgetReceiver::class.java, ::StepsTrendWidget, StepsTrendWidget.config,
+      ),
+      WidgetInfo(
+        "Kalendář cíle", "Goal calendar", "4×2",
+        "Posledních 5 týdnů, den po dni", "Last 5 weeks, day by day",
+        CalendarWidgetReceiver::class.java, ::CalendarWidget, CalendarWidget.config,
+      ),
+      WidgetInfo(
+        "Jedna hodnota", "Single value", "2×1",
+        "Vybraná hodnota velkým písmem", "A chosen value in large type",
+        SingleValueWidgetReceiver::class.java, ::SingleValueWidget, SingleValueWidget.config,
+      ),
+      WidgetInfo(
+        "Malá hodnota", "Small value", "1×1",
+        "Vybraná hodnota na nejmenší ploše", "A chosen value at the smallest size",
+        MiniValueWidgetReceiver::class.java, ::MiniValueWidget, MiniValueWidget.config,
+      ),
       // Nothing to pick but the theme.
-      WidgetInfo("Spánek", "4×2", "Délka a fáze poslední noci", SleepWidgetReceiver::class.java, ::SleepWidget, THEME_ONLY),
-      WidgetInfo("Srdce", "2×2", "Klidový tep a trend 7 dní", HeartWidgetReceiver::class.java, ::HeartWidget, THEME_ONLY),
-      WidgetInfo("Tep dnes", "4×2", "Tep po hodinách od půlnoci", HeartDayWidgetReceiver::class.java, ::HeartDayWidget, THEME_ONLY),
-      WidgetInfo("Poslední aktivita", "4×1", "Poslední trénink", LastWorkoutWidgetReceiver::class.java, ::LastWorkoutWidget, THEME_ONLY),
+      WidgetInfo(
+        "Spánek", "Sleep", "4×2",
+        "Délka a fáze poslední noci", "Last night's sleep duration and stages",
+        SleepWidgetReceiver::class.java, ::SleepWidget, THEME_ONLY,
+      ),
+      WidgetInfo(
+        "Srdce", "Heart", "2×2",
+        "Klidový tep a trend 7 dní", "Resting heart rate and 7-day trend",
+        HeartWidgetReceiver::class.java, ::HeartWidget, THEME_ONLY,
+      ),
+      WidgetInfo(
+        "Tep dnes", "Heart rate today", "4×2",
+        "Tep po hodinách od půlnoci", "Hourly heart rate since midnight",
+        HeartDayWidgetReceiver::class.java, ::HeartDayWidget, THEME_ONLY,
+      ),
+      WidgetInfo(
+        "Poslední aktivita", "Latest activity", "4×1",
+        "Poslední trénink", "Latest workout",
+        LastWorkoutWidgetReceiver::class.java, ::LastWorkoutWidget, THEME_ONLY,
+      ),
     )
 
   fun byProvider(className: String?): WidgetInfo? = all.firstOrNull { it.receiver.name == className }

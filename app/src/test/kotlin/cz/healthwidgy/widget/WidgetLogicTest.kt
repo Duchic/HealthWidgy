@@ -6,17 +6,32 @@ import cz.healthwidgy.data.db.BodyMeasurementEntity
 import cz.healthwidgy.data.db.SleepSessionEntity
 import cz.healthwidgy.data.settings.ThemeMode
 import cz.healthwidgy.data.sync.Metrics
+import cz.healthwidgy.i18n.AppLang
+import cz.healthwidgy.i18n.Lang
 import cz.healthwidgy.ui.Format
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 class WidgetLogicTest {
   private val today = LocalDate.of(2026, 11, 12) // Thursday
   private val prague = ZoneId.of("Europe/Prague")
+
+  // The expected texts below are Czech; the English test switches the language itself.
+  @Before
+  fun czech() {
+    AppLang.override = Lang.CS
+  }
+
+  @After
+  fun resetLanguage() {
+    AppLang.override = null
+  }
 
   private fun snapshot(
     daily: Map<String, Map<LocalDate, DayRow>> = emptyMap(),
@@ -177,8 +192,8 @@ class WidgetLogicTest {
 
   @Test
   fun choicesFallBackToDefaultsAndKeepEmptyOptionalSlots() {
-    val required = Slot("ring", "Kroužek", WidgetMetric.withGoal, WidgetMetric.STEPS)
-    val optional = Slot("slot3", "Hodnota 3", WidgetMetric.pickerOrder, WidgetMetric.CALORIES, optional = true)
+    val required = Slot("ring", "Kroužek", "Ring", WidgetMetric.withGoal, WidgetMetric.STEPS)
+    val optional = Slot("slot3", "Hodnota 3", "Value 3", WidgetMetric.pickerOrder, WidgetMetric.CALORIES, optional = true)
     assertEquals(WidgetMetric.STEPS, WidgetChoices.metric(null, required))
     // Not allowed in this slot (no goal) or empty in a required slot: default.
     assertEquals(WidgetMetric.STEPS, WidgetChoices.metric(mutablePreferencesOf(stringPreferencesKey("ring") to "CALORIES"), required))
@@ -206,7 +221,7 @@ class WidgetLogicTest {
     assertEquals(ThemeMode.DARK, WidgetChoices.theme(prefs))
     assertEquals("tmavý vzhled", WidgetChoices.summary(prefs, config))
 
-    val single = WidgetConfig(listOf(Slot("metric", "Hodnota", WidgetMetric.pickerOrder, WidgetMetric.STEPS)))
+    val single = WidgetConfig(listOf(Slot("metric", "Hodnota", "Value", WidgetMetric.pickerOrder, WidgetMetric.STEPS)))
     WidgetChoices.write(prefs, single, mapOf("metric" to WidgetMetric.WEIGHT), period = null, theme = ThemeMode.LIGHT)
     assertEquals("Váha · světlý vzhled", WidgetChoices.summary(prefs, single))
 
@@ -216,4 +231,27 @@ class WidgetLogicTest {
     assertNull(WidgetChoices.theme(mutablePreferencesOf(WidgetChoices.THEME_KEY to "SEPIA")))
   }
 
+  @Test
+  fun englishTextsFollowTheLanguage() {
+    AppLang.override = Lang.EN
+    val steps = snapshot(daily = mapOf(Metrics.STEPS to day(today to 7369.0)))
+    val r = steps.read(WidgetMetric.STEPS)
+    assertEquals("7,369", r.value)
+    assertEquals("74% of goal", r.note)
+    assertEquals("steps", steps.compactCaption(WidgetMetric.STEPS, r))
+    val resting = snapshot(daily = mapOf(Metrics.RESTING_HR to day(today to 52.0)))
+    assertEquals("bpm at rest", resting.compactCaption(WidgetMetric.RESTING_HR, resting.read(WidgetMetric.RESTING_HR)))
+    val weight = snapshot(weights = listOf(BodyMeasurementEntity("w", "weight", 0, today.minusDays(1).toString(), 79.6, "x")))
+    assertEquals("kg · yesterday", weight.compactCaption(WidgetMetric.WEIGHT, weight.read(WidgetMetric.WEIGHT)))
+    assertEquals("floor", snapshot(daily = mapOf(Metrics.FLOORS to day(today to 1.0))).read(WidgetMetric.FLOORS).unit)
+    assertEquals("floors", snapshot(daily = mapOf(Metrics.FLOORS to day(today to 3.0))).read(WidgetMetric.FLOORS).unit)
+    // Labels kept in enums and objects are read in the language of the moment, not the one at startup.
+    assertEquals("Resting HR", WidgetMetric.RESTING_HR.shortLabel)
+    val slot = Slot("metric", "Údaj", "Metric", WidgetMetric.withHistory, WidgetMetric.STEPS)
+    assertEquals("Metric", slot.title)
+    val config = WidgetConfig(listOf(slot), periods = listOf(7, 30), defaultPeriod = 7)
+    val prefs = mutablePreferencesOf()
+    WidgetChoices.write(prefs, config, mapOf("metric" to WidgetMetric.SLEEP), 30, theme = ThemeMode.DARK)
+    assertEquals("Sleep · 30 days · dark theme", WidgetChoices.summary(prefs, config))
+  }
 }

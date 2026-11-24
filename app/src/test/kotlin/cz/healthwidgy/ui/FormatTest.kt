@@ -70,12 +70,27 @@ class FormatTest {
   }
 
   @Test
+  fun percentAndMidSentenceDatesFollowTheLanguage() {
+    val today = LocalDate.of(2026, 11, 10)
+    val morning = Instant.parse("2026-11-10T06:05:00Z")
+    val monday = Instant.parse("2026-11-02T16:05:00Z")
+    assertEquals("62 %", Format.percent(62))
+    assertEquals("dnes 7:05", Format.dayAndTime(morning, prague, today, inSentence = true))
+    assertEquals("po 2. 11. 17:05", Format.dayAndTime(monday, prague, today, inSentence = true))
+    AppLang.override = Lang.EN
+    assertEquals("62%", Format.percent(62))
+    assertEquals("23.4%", Format.percent(Format.decimal(23.4)))
+    assertEquals("today 07:05", Format.dayAndTime(morning, prague, today, inSentence = true))
+    assertEquals("Mon Nov 2 17:05", Format.dayAndTime(monday, prague, today, inSentence = true))
+  }
+
+  @Test
   fun englishUsesEnglishNumbersDatesAndWords() {
     AppLang.override = Lang.EN
     val today = LocalDate.of(2026, 11, 10)
     assertEquals("6.1", Format.km(6120.0))
     assertEquals("7,369", Format.int(7369L))
-    assertEquals("Today 7:05", Format.dayAndTime(Instant.parse("2026-11-10T06:05:00Z"), prague, today))
+    assertEquals("Today 07:05", Format.dayAndTime(Instant.parse("2026-11-10T06:05:00Z"), prague, today))
     assertEquals("Mon Nov 2 17:05", Format.dayAndTime(Instant.parse("2026-11-02T16:05:00Z"), prague, today))
     assertEquals("Tuesday, November 10", Format.longDate(today))
     assertEquals("Nov 3–9", Format.weekRange(LocalDate.of(2026, 11, 3), LocalDate.of(2026, 11, 9)))

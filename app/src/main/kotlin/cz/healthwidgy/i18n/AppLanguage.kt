@@ -10,11 +10,11 @@ enum class LanguageChoice(val tag: String?) {
   CZECH("cs"),
   ENGLISH("en");
 
-  /** "Podle systému" / "System"; the languages are named in their own language. */
+  /** "Systém" / "System" (as in the theme choice); the languages are named in their own language. */
   val label: String
     get() =
       when (this) {
-        SYSTEM -> tr("Podle systému", "System")
+        SYSTEM -> tr("Systém", "System")
         CZECH -> "Čeština"
         ENGLISH -> "English"
       }

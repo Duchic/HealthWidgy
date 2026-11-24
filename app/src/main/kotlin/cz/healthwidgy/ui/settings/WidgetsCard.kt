@@ -71,7 +71,7 @@ fun WidgetsCard() {
     Text(
       tr(
         "Ťukni na Přidat, nebo dlouze podrž prázdné místo na ploše → Widgety → HealthWidgy. Co widget ukazuje a jestli je světlý, nebo tmavý, vybereš při přidání a později tady přes Upravit. Widgety se obnovují zhruba jednou za hodinu, při otevření aplikace a ťuknutím na ↻.",
-        "Tap Add, or long-press an empty spot on the home screen → Widgets → HealthWidgy. You pick what a widget shows and whether it is light or dark when you add it, and later here via Edit. Widgets refresh about once an hour, when you open the app and when you tap ↻.",
+        "Tap Add, or long-press an empty spot on the home screen → Widgets → HealthWidgy. When you add a widget, you choose what it shows and whether it is light or dark; you can change this later here via Edit. Widgets refresh about once an hour, whenever you open the app, and when you tap ↻.",
       ),
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -26,6 +26,9 @@ import cz.healthwidgy.data.hc.GARMIN_CONNECT_PACKAGE
 import cz.healthwidgy.data.hc.endTimeOrNull
 import cz.healthwidgy.data.hc.isInterval
 import cz.healthwidgy.data.hc.startTimeOrNull
+import cz.healthwidgy.i18n.AppLang
+import cz.healthwidgy.i18n.Lang
+import cz.healthwidgy.i18n.tr
 import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
@@ -53,7 +56,7 @@ internal class DemoData {
     get() = ZoneId.systemDefault()
 
   private var cachedZone: ZoneId? = null
-
+  private var cachedLang: Lang? = null
 
   /** Records of one day up to [cutoff], by record type. A night belongs to the day it ends on. */
   private class Day(val records: Map<KClass<out Record>, List<Record>>, val cutoff: Instant, val complete: Boolean)
@@ -69,10 +72,12 @@ internal class DemoData {
    */
   private fun day(date: LocalDate, now: Instant): Day =
     synchronized(cache) {
-      // Days are generated in local time: a new zone makes every cached day wrong.
-      if (zone != cachedZone) {
+      // Days are generated in local time and workout titles in the app's language: a new zone or language
+      // makes every cached day wrong.
+      if (zone != cachedZone || AppLang.current != cachedLang) {
         cache.clear()
         cachedZone = zone
+        cachedLang = AppLang.current
       }
       val cached = cache[date]
       if (cached != null && (cached.complete || Duration.between(cached.cutoff, now) < Duration.ofMinutes(1))) cached
@@ -183,15 +188,16 @@ internal class DemoData {
       return Workout(type, title, start, end, metersPerMinute, steps, kcal, bpm, elevation, intervals)
     }
     return when (date.dayOfWeek) {
-      DayOfWeek.MONDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, "Posilovna", 18, 0, 20, 40..55, 0.0, 0, 6.5, 112, 0.0)
-      DayOfWeek.TUESDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, "Běh", 17, 30, 25, 42..55, r.nextDouble(180.0, 196.0), 168, 11.5, 148, r.nextDouble(40.0, 90.0))
-      DayOfWeek.WEDNESDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_WALKING, "Polední procházka", 12, 5, 15, 28..40, r.nextDouble(82.0, 90.0), 118, 4.5, 98, r.nextDouble(5.0, 20.0))
-      DayOfWeek.THURSDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, "Intervaly", 17, 40, 20, 38..48, r.nextDouble(192.0, 206.0), 172, 12.5, 150, r.nextDouble(30.0, 60.0), intervals = true)
+      // Titles as a person would type them in Garmin Connect, in the app's language.
+      DayOfWeek.MONDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, tr("Posilovna", "Gym"), 18, 0, 20, 40..55, 0.0, 0, 6.5, 112, 0.0)
+      DayOfWeek.TUESDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, tr("Běh", "Run"), 17, 30, 25, 42..55, r.nextDouble(180.0, 196.0), 168, 11.5, 148, r.nextDouble(40.0, 90.0))
+      DayOfWeek.WEDNESDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_WALKING, tr("Polední procházka", "Lunch walk"), 12, 5, 15, 28..40, r.nextDouble(82.0, 90.0), 118, 4.5, 98, r.nextDouble(5.0, 20.0))
+      DayOfWeek.THURSDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, tr("Intervaly", "Intervals"), 17, 40, 20, 38..48, r.nextDouble(192.0, 206.0), 172, 12.5, 150, r.nextDouble(30.0, 60.0), intervals = true)
       DayOfWeek.FRIDAY -> null
-      DayOfWeek.SATURDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_BIKING, "Vyjížďka", 9, 20, 40, 80..120, r.nextDouble(400.0, 470.0), 0, 9.0, 132, r.nextDouble(350.0, 750.0))
+      DayOfWeek.SATURDAY -> plan(ExerciseSessionRecord.EXERCISE_TYPE_BIKING, tr("Vyjížďka", "Bike ride"), 9, 20, 40, 80..120, r.nextDouble(400.0, 470.0), 0, 9.0, 132, r.nextDouble(350.0, 750.0))
       DayOfWeek.SUNDAY ->
-        if (r.nextInt(4) == 0) plan(ExerciseSessionRecord.EXERCISE_TYPE_HIKING, "Túra", 9, 45, 30, 150..210, r.nextDouble(65.0, 75.0), 105, 6.5, 112, r.nextDouble(400.0, 700.0))
-        else plan(ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, "Dlouhý běh", 8, 50, 30, 70..95, r.nextDouble(176.0, 186.0), 166, 11.0, 143, r.nextDouble(80.0, 160.0))
+        if (r.nextInt(4) == 0) plan(ExerciseSessionRecord.EXERCISE_TYPE_HIKING, tr("Túra", "Hike"), 9, 45, 30, 150..210, r.nextDouble(65.0, 75.0), 105, 6.5, 112, r.nextDouble(400.0, 700.0))
+        else plan(ExerciseSessionRecord.EXERCISE_TYPE_RUNNING, tr("Dlouhý běh", "Long run"), 8, 50, 30, 70..95, r.nextDouble(176.0, 186.0), 166, 11.0, 143, r.nextDouble(80.0, 160.0))
     }
   }
 

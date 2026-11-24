@@ -15,8 +15,8 @@ enum class OverviewCardType(
 ) {
   STEPS("Kroky dnes", "Steps today", "Kroužek kroků; přes celou šířku i vzdálenost, patra a kalorie", "Step ring; full width adds distance, floors and calories", true),
   HEART("Tep", "Heart rate", "Poslední tep, rozsah dne a klidový tep", "Latest heart rate, today's range and resting heart rate", false),
-  SLEEP("Spánek", "Sleep", "Délka a fáze poslední noci", "Length and stages of last night", false),
-  CALORIES("Kalorie", "Calories", "Celkový výdej a kolik při tréninku", "Total burned and how much in workouts", false),
+  SLEEP("Spánek", "Sleep", "Délka a fáze poslední noci", "Last night's sleep duration and stages", false),
+  CALORIES("Kalorie", "Calories", "Celkový výdej a kolik při tréninku", "Total burned and the share from workouts", false),
   WEIGHT("Váha", "Weight", "Poslední vážení, změna za týden a tuk", "Latest weigh-in, weekly change and body fat", false),
   DISTANCE("Vzdálenost", "Distance", "Dnešní kilometry a plnění cíle", "Today's kilometers and goal progress", false),
   FLOORS("Patra", "Floors", "Dnešní patra a plnění cíle", "Today's floors and goal progress", false),

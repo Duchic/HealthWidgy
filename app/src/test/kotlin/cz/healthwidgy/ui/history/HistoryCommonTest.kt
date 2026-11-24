@@ -1,13 +1,28 @@
 package cz.healthwidgy.ui.history
 
 import cz.healthwidgy.data.db.DailyMetricEntity
+import cz.healthwidgy.i18n.AppLang
+import cz.healthwidgy.i18n.Lang
 import java.time.LocalDate
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Before
 import org.junit.Test
 
 class HistoryCommonTest {
   private val today = LocalDate.of(2026, 11, 10) // Tuesday
+
+  // The labels below are Czech: pin the language so the tests do not depend on the machine's locale.
+  @Before
+  fun pinCzech() {
+    AppLang.override = Lang.CS
+  }
+
+  @After
+  fun resetLanguage() {
+    AppLang.override = null
+  }
 
   private fun row(date: String, value: Double) = DailyMetricEntity(date, "steps", "GARMIN_ONLY", value, updatedAt = 0)
 

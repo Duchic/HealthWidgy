@@ -43,6 +43,7 @@ import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
 import cz.healthwidgy.appContainer
 import cz.healthwidgy.data.settings.ThemeMode
+import cz.healthwidgy.i18n.tr
 import cz.healthwidgy.ui.theme.HealthWidgyTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.map
@@ -132,7 +133,8 @@ class WidgetConfigActivity : ComponentActivity() {
       Column {
         Text(info.name, style = MaterialTheme.typography.headlineSmall)
         Text(
-          if (single) "Ťukni na vzhled widgetu." else "Vyber, co má widget ukazovat, a ulož.",
+          if (single) tr("Ťukni na vzhled widgetu.", "Tap a look to apply it.")
+          else tr("Vyber, co má widget ukazovat, a ulož.", "Choose what the widget shows, then save."),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -155,7 +157,7 @@ class WidgetConfigActivity : ComponentActivity() {
               FilterChip(
                 selected = choices.metrics[slot.key] == null,
                 onClick = { onChange(choices.copy(metrics = choices.metrics + (slot.key to null))) },
-                label = { Text("Nic") },
+                label = { Text(tr("Nic", "None")) },
               )
             }
           }
@@ -163,16 +165,16 @@ class WidgetConfigActivity : ComponentActivity() {
       }
       if (config.periods.isNotEmpty()) {
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-          Text("Období", style = MaterialTheme.typography.titleSmall)
+          Text(tr("Období", "Period"), style = MaterialTheme.typography.titleSmall)
           FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             config.periods.forEach { days ->
-              FilterChip(selected = choices.period == days, onClick = { onChange(choices.copy(period = days)) }, label = { Text("$days dní") })
+              FilterChip(selected = choices.period == days, onClick = { onChange(choices.copy(period = days)) }, label = { Text(tr("$days dní", "$days days")) })
             }
           }
         }
       }
       Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("Vzhled widgetu", style = MaterialTheme.typography.titleSmall)
+        Text(tr("Vzhled widgetu", "Widget look"), style = MaterialTheme.typography.titleSmall)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
           (listOf(null) + ThemeMode.entries).forEach { theme ->
             FilterChip(
@@ -181,20 +183,24 @@ class WidgetConfigActivity : ComponentActivity() {
                 val picked = choices.copy(theme = theme)
                 if (single) onSave(picked) else onChange(picked)
               },
-              label = { Text(theme?.label ?: "Podle nastavení") },
+              label = { Text(theme?.label ?: tr("Podle nastavení", "As in settings")) },
             )
           }
         }
         Text(
-          "Podle nastavení: jako ostatní widgety (Nastavení → Vzhled → Widgety" + (appWidgetTheme?.let { ", teď ${it.label.lowercase()}" } ?: "") + "). " +
-            "Světlý a Tmavý platí jen pro tento widget, ať je telefon ve světlém nebo tmavém režimu.",
+          tr("Podle nastavení: jako ostatní widgety (Nastavení → Vzhled → Widgety", "As in settings: like the other widgets (Settings → Appearance → Widgets") +
+            (appWidgetTheme?.let { tr(", teď ${it.label.lowercase()}", ", now ${it.label.lowercase()}") } ?: "") + "). " +
+            tr(
+              "Světlý a Tmavý platí jen pro tento widget, ať je telefon ve světlém nebo tmavém režimu.",
+              "Light and Dark apply to this widget only, whether the phone is in light or dark mode.",
+            ),
           style = MaterialTheme.typography.bodySmall,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, androidx.compose.ui.Alignment.End)) {
-        TextButton(onClick = onCancel) { Text("Zrušit") }
-        if (!single) Button(onClick = { onSave(choices) }) { Text("Uložit") }
+        TextButton(onClick = onCancel) { Text(tr("Zrušit", "Cancel")) }
+        if (!single) Button(onClick = { onSave(choices) }) { Text(tr("Uložit", "Save")) }
       }
     }
   }
